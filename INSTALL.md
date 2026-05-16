@@ -62,28 +62,6 @@ export ONTOLOGY_LEDGER_URL=http://<host>:8092
 export ONTOLOGY_CIRCLE_MCP_URL=http://<host>:8093/mcp/
 ```
 
-## ZeroClaw Container
-
-Mount the CLI into the container as `/usr/local/bin/ontology`:
-
-```bash
-docker run -d --name zeroclaw-eigenflux \
-  -p 42617:42617 \
-  -v "$PWD/runtime/config:/zeroclaw-data/.zeroclaw" \
-  -v "$PWD/runtime/workspace:/zeroclaw-data/workspace" \
-  -v "$PWD/runtime/config/bin/ontology:/usr/local/bin/ontology:ro" \
-  ghcr.io/zeroclaw-labs/zeroclaw:debian gateway start
-```
-
-Inside the container:
-
-```bash
-ontology ledger health
-ontology ledger state
-ontology circle health
-ontology circle tools
-```
-
 Ensure the runtime config allows the `ontology` command.
 
 ## Agent Rules
