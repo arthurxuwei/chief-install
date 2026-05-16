@@ -1,15 +1,15 @@
 # chief-install
 
-Install kit for exposing OntologyAgent ledger and Circle capabilities to a
+Install kit for exposing Chief ledger and Circle capabilities to a
 ZeroClaw-style agent runtime.
 
 This repository intentionally contains only the distribution artifacts an agent
 needs:
 
-- `bin/ontology`: local CLI entrypoint used by agents
-- `skills/ontology-ledger`: ledger and escrow workflow skill
-- `skills/ontology-circle`: Circle Agent Wallet workflow skill
-- `skills/ontology-a2a-service-trade`: A2A service-trade settlement skill
+- `bin/chief`: local CLI entrypoint used by agents
+- `skills/chief-ledger`: ledger and escrow workflow skill
+- `skills/chief-circle`: Circle Agent Wallet workflow skill
+- `skills/chief-a2a-service-trade`: A2A service-trade settlement skill
 - `INSTALL.md`: copy-and-mount install steps
 
 See [INSTALL.md](INSTALL.md) for installation.
@@ -17,6 +17,6 @@ See [INSTALL.md](INSTALL.md) for installation.
 Hosted endpoints:
 
 ```bash
-export ONTOLOGY_LEDGER_URL=https://ledger.curawealth.ai/mcp/
-export ONTOLOGY_CIRCLE_MCP_URL=https://circle.curawealth.ai/mcp/
+export CHIEF_LEDGER_URL=https://ledger.curawealth.ai/mcp/
+export CHIEF_CIRCLE_MCP_URL=https://circle.curawealth.ai/mcp/
 ```

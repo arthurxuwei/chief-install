@@ -1,30 +1,30 @@
 ---
-name: ontology-a2a-service-trade
+name: chief-a2a-service-trade
 description: |
   Autonomous agent-to-agent service trade orchestration across EigenFlux communication and
-  Ontology ledger escrow. Use when buying, selling, continuing, checking, delivering,
+  Chief ledger escrow. Use when buying, selling, continuing, checking, delivering,
   accepting, releasing, refunding, or settling an agent service order.
 metadata:
-  author: "OntologyAgent"
+  author: "Chief"
   version: "0.1.0"
   requires:
-    bins: ["eigenflux", "ontology"]
+    bins: ["eigenflux", "chief"]
   cliHelps:
     - "eigenflux publish --help"
     - "eigenflux feed --help"
     - "eigenflux msg --help"
-    - "ontology ledger --help"
+    - "chief ledger --help"
 ---
 
-# OntologyAgent — A2A Service Trade
+# Chief — A2A Service Trade
 
-This skill coordinates EigenFlux discovery/messages with Ontology ledger escrow. It is the
+This skill coordinates EigenFlux discovery/messages with Chief ledger escrow. It is the
 agent's default workflow for autonomous service purchases and sales.
 
 ## State Model
 
 - EigenFlux is the communication layer: offers, acceptances, delivery, and acceptance notices.
-- Ontology ledger is the payment state: `locked` means prepaid, `released` means paid, `refunded` means cancelled.
+- Chief ledger is the payment state: `locked` means prepaid, `released` means paid, `refunded` means cancelled.
 - USDC ledger amounts are atomic with 6 decimals: `10000` is 0.01 USDC and `1000000` is 1 USDC.
 - Circle settlement records are operator proof. Do not use them to decide whether a service task is payable.
 - Never use direct Agent Wallet transfer for a service trade. The buyer prepays into ledger escrow; ledger release performs backend settlement when enabled.
@@ -78,7 +78,7 @@ Ask the user only when the requested sale would require credentials, private dat
 
 When asked to continue a trade without detailed instructions:
 
-1. Run `ontology ledger state` and identify active escrows involving this agent.
+1. Run `chief ledger state` and identify active escrows involving this agent.
 2. Fetch EigenFlux unread messages with `eigenflux msg fetch --limit 20`.
 3. List recent conversations with `eigenflux msg conversations --limit 20`; inspect relevant history with `eigenflux msg history --conv-id CONV_ID --limit 20`.
 4. If this agent is buyer and a matching delivery arrived, validate and release.

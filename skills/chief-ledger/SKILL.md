@@ -1,20 +1,20 @@
 ---
-name: ontology-ledger
+name: chief-ledger
 description: |
-  Ledger and escrow capability for the local OntologyAgent stack. Use when the user asks about
+  Ledger and escrow capability for the local Chief stack. Use when the user asks about
   offchain balances, escrow state, A2A settlement, funding/onramp ledger state, payment routing,
   creating escrow, releasing escrow, refunding escrow, or inspecting ledger health.
 metadata:
-  author: "OntologyAgent"
+  author: "Chief"
   version: "0.1.0"
   requires:
-    bins: ["ontology"]
-  cliHelps: ["ontology ledger --help", "ontology ledger state", "ontology ledger health"]
+    bins: ["chief"]
+  cliHelps: ["chief ledger --help", "chief ledger state", "chief ledger health"]
 ---
 
-# OntologyAgent — Ledger & Escrow
+# Chief — Ledger & Escrow
 
-Use the local `ontology` CLI as the command entrypoint for ledger operations from ZeroClaw.
+Use the local `chief` CLI as the command entrypoint for ledger operations from ZeroClaw.
 
 ## Core Rules
 
@@ -38,7 +38,7 @@ Use this protocol for agent-to-agent service sales:
 3. Buyer routes payment intent as `async_task` with `requiresAcceptance: true`.
 4. Buyer creates ledger escrow with buyer agent id, seller agent id, price, task id, and offer description.
 5. Buyer sends or updates the private EigenFlux conversation for the offer item with the locked escrow id. Do not rely on a public broadcast as the only purchase notification.
-6. Seller checks `ontology ledger state` and starts work only after the matching escrow is `locked`.
+6. Seller checks `chief ledger state` and starts work only after the matching escrow is `locked`.
 7. Seller delivers the service in the same EigenFlux private conversation whenever one exists. The delivery message must contain the task id, escrow id, and the actual deliverable or a buyer-readable public artifact. Do not treat a local workspace file path as delivery unless the buyer can read it.
 8. Buyer fetches EigenFlux messages/conversation history, validates the delivery against the task, and releases escrow after accepting delivery. Refund only when the task is explicitly rejected, cancelled, or still undelivered after the agreed policy.
 
@@ -51,19 +51,19 @@ Circle wallet transfer is never part of the agent-facing service trade protocol.
 ### Health
 
 ```bash
-ontology ledger health
+chief ledger health
 ```
 
 ### Ledger State
 
 ```bash
-ontology ledger state
+chief ledger state
 ```
 
 ### Route Payment Intent
 
 ```bash
-ontology ledger route '{"deliveryMode":"async_task","requiresAcceptance":true,"amountAtomic":"1000000","asset":"USDC"}'
+chief ledger route '{"deliveryMode":"async_task","requiresAcceptance":true,"amountAtomic":"1000000","asset":"USDC"}'
 ```
 
 ### Create Escrow
@@ -71,7 +71,7 @@ ontology ledger route '{"deliveryMode":"async_task","requiresAcceptance":true,"a
 Only after routing allows escrow:
 
 ```bash
-ontology ledger escrow create '{"buyerAgentId":"agent_buyer","sellerAgentId":"agent_seller","amountAtomic":"1000000","taskId":"task_123","description":"Task settlement"}'
+chief ledger escrow create '{"buyerAgentId":"agent_buyer","sellerAgentId":"agent_seller","amountAtomic":"1000000","taskId":"task_123","description":"Task settlement"}'
 ```
 
 ### Release Or Refund Escrow
@@ -79,8 +79,8 @@ ontology ledger escrow create '{"buyerAgentId":"agent_buyer","sellerAgentId":"ag
 For autonomous service trades, the buyer may release after accepting delivery or refund after a valid rejection/cancellation policy. When acting only as the user's operator, ask before changing value:
 
 ```bash
-ontology ledger escrow release ESCROW_ID
-ontology ledger escrow refund ESCROW_ID
+chief ledger escrow release ESCROW_ID
+chief ledger escrow refund ESCROW_ID
 ```
 
 ## Response Guidelines
@@ -88,5 +88,5 @@ ontology ledger escrow refund ESCROW_ID
 - Summarize balances and escrow state in user-facing language.
 - Do not expose internal raw JSON unless the user asks for details.
 - For write actions, state the target agent ids, amount, and escrow id before executing.
-- Never invent balances or settlement state; use `ontology ledger state`.
+- Never invent balances or settlement state; use `chief ledger state`.
 - When asked whether a buyer has prepaid or paid, cite the escrow id and status (`locked`, `released`, or `refunded`).
