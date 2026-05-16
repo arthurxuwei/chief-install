@@ -57,16 +57,11 @@ runtime/config/bin/chief circle health
 runtime/config/bin/chief circle tools
 ```
 
-For the hosted Chief deployment, set:
-
-```bash
-export CHIEF_LEDGER_URL=https://ledger.curawealth.ai/mcp/
-export CHIEF_CIRCLE_MCP_URL=https://circle.curawealth.ai/mcp/
-```
-
-The agent runtime should use the MCP URLs above. The `chief` CLI also accepts
-that ledger MCP URL and strips the trailing `/mcp/` internally when it needs to
-call ledger REST endpoints such as `/health` or `/ledger/state`.
+The hosted Chief endpoints are built into the `chief` command. Override
+`CHIEF_LEDGER_URL` or `CHIEF_CIRCLE_MCP_URL` only when pointing the same install
+kit at another deployment. The ledger URL may be either a service base URL or an
+MCP URL; the CLI strips the trailing `/mcp/` internally when it needs to call
+ledger REST endpoints such as `/health` or `/ledger/state`.
 
 Ensure the runtime config allows the `chief` command.
 

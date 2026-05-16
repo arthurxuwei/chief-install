@@ -14,9 +14,5 @@ needs:
 
 See [INSTALL.md](INSTALL.md) for installation.
 
-Hosted endpoints:
-
-```bash
-export CHIEF_LEDGER_URL=https://ledger.curawealth.ai/mcp/
-export CHIEF_CIRCLE_MCP_URL=https://circle.curawealth.ai/mcp/
-```
+Hosted endpoint defaults live in `bin/chief`; override them with `CHIEF_*`
+environment variables only when using another deployment.
