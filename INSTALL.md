@@ -55,12 +55,16 @@ runtime/config/bin/ontology circle health
 runtime/config/bin/ontology circle tools
 ```
 
-If services are remote, set:
+For the hosted OntologyAgent deployment, set:
 
 ```bash
-export ONTOLOGY_LEDGER_URL=http://<host>:8092
-export ONTOLOGY_CIRCLE_MCP_URL=http://<host>:8093/mcp/
+export ONTOLOGY_LEDGER_URL=https://ledger.curawealth.ai/mcp/
+export ONTOLOGY_CIRCLE_MCP_URL=https://circle.curawealth.ai/mcp/
 ```
+
+The agent runtime should use the MCP URLs above. The `ontology` CLI also accepts
+that ledger MCP URL and strips the trailing `/mcp/` internally when it needs to
+call ledger REST endpoints such as `/health` or `/ledger/state`.
 
 Ensure the runtime config allows the `ontology` command.
 

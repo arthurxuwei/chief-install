@@ -1,10 +1,22 @@
 #!/usr/bin/env sh
 set -eu
 
-LEDGER_URL="${ONTOLOGY_LEDGER_URL:-http://host.docker.internal:8092}"
+LEDGER_CONFIG_URL="${ONTOLOGY_LEDGER_HTTP_URL:-${ONTOLOGY_LEDGER_URL:-http://host.docker.internal:8092}}"
 LEDGER_FALLBACK_URL="${ONTOLOGY_LEDGER_FALLBACK_URL:-http://127.0.0.1:8092}"
 CIRCLE_MCP_URL="${ONTOLOGY_CIRCLE_MCP_URL:-http://host.docker.internal:8093/mcp/}"
 CIRCLE_MCP_FALLBACK_URL="${ONTOLOGY_CIRCLE_MCP_FALLBACK_URL:-http://127.0.0.1:8093/mcp/}"
+
+case "$LEDGER_CONFIG_URL" in
+  */mcp/)
+    LEDGER_URL="${LEDGER_CONFIG_URL%/mcp/}"
+    ;;
+  */mcp)
+    LEDGER_URL="${LEDGER_CONFIG_URL%/mcp}"
+    ;;
+  *)
+    LEDGER_URL="$LEDGER_CONFIG_URL"
+    ;;
+esac
 
 usage() {
   cat <<'EOF'
@@ -25,6 +37,8 @@ Usage:
 
 Environment:
   ONTOLOGY_LEDGER_URL          default http://host.docker.internal:8092
+                                accepts either service base URL or /mcp/ URL
+  ONTOLOGY_LEDGER_HTTP_URL     optional explicit service base URL for CLI REST calls
   ONTOLOGY_LEDGER_FALLBACK_URL default http://127.0.0.1:8092
   ONTOLOGY_CIRCLE_MCP_URL      default http://host.docker.internal:8093/mcp/
   ONTOLOGY_CIRCLE_MCP_FALLBACK_URL default http://127.0.0.1:8093/mcp/

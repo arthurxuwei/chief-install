@@ -13,3 +13,10 @@ needs:
 - `INSTALL.md`: copy-and-mount install steps
 
 See [INSTALL.md](INSTALL.md) for installation.
+
+Hosted endpoints:
+
+```bash
+export ONTOLOGY_LEDGER_URL=https://ledger.curawealth.ai/mcp/
+export ONTOLOGY_CIRCLE_MCP_URL=https://circle.curawealth.ai/mcp/
+```
