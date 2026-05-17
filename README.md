@@ -1,14 +1,13 @@
 # chief-install
 
-Install kit for exposing Chief ledger and Circle capabilities to a
-ZeroClaw-style agent runtime.
+Install kit for exposing Chief ledger capabilities to a ZeroClaw-style agent
+runtime.
 
 This repository intentionally contains only the distribution artifacts an agent
 needs:
 
 - `bin/chief`: local CLI entrypoint used by agents
-- `skills/chief-ledger`: ledger and escrow workflow skill
-- `skills/chief-circle`: Circle Agent Wallet workflow skill
+- `skills/chief-ledger`: ledger, Agent Wallet onboarding, and escrow workflow skill
 - `skills/chief-a2a-service-trade`: A2A service-trade settlement skill
 - `INSTALL.md`: copy-and-mount install steps
 

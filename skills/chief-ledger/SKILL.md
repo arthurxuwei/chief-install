@@ -2,8 +2,9 @@
 name: chief-ledger
 description: |
   Ledger and escrow capability for the local Chief stack. Use when the user asks about
-  offchain balances, escrow state, A2A settlement, funding/onramp ledger state, payment routing,
-  creating escrow, releasing escrow, refunding escrow, or inspecting ledger health.
+  Agent Wallet onboarding, offchain balances, escrow state, A2A settlement,
+  funding/onramp ledger state, payment routing, creating escrow, releasing escrow,
+  refunding escrow, or inspecting ledger health.
 metadata:
   author: "Chief"
   version: "0.1.0"
@@ -19,6 +20,9 @@ Use the local `chief` CLI as the command entrypoint for ledger operations from Z
 ## Core Rules
 
 - Offchain balances and escrow state live in the standalone `ledger` service.
+- Agent Wallet onboarding must go through ledger with `chief ledger wallet get-or-create`.
+  Ledger creates or reuses the backend wallet binding and ensures the corresponding
+  zero-balance ledger account exists.
 - Any funding, payment, escrow lock, release, or refund must route payment intent first.
 - After routing, use only the returned `allowedTools` / command family.
 - If routing returns `needs_clarification`, ask the user before funding, paying, locking, releasing, or refunding.
@@ -59,6 +63,17 @@ chief ledger health
 ```bash
 chief ledger state
 ```
+
+### Agent Wallet Onboarding
+
+Use this before funding or participating in service-trade escrow for a new agent:
+
+```bash
+chief ledger wallet get-or-create '{"agentName":"agent_name","agentId":"agent_id","email":"agent@example.com"}'
+```
+
+If an existing backend wallet id or address is known, include it in the same
+payload. The response includes both the wallet binding and the ledger account.
 
 ### Route Payment Intent
 

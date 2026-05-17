@@ -1,7 +1,7 @@
 # Install Chief CLI
 
 Install the `chief` CLI and only the Chief skills this deployment
-uses: `chief-ledger`, `chief-circle`, and `chief-a2a-service-trade`.
+uses: `chief-ledger` and `chief-a2a-service-trade`.
 
 Run from this repository root:
 
@@ -17,7 +17,7 @@ if [ -d "$RUNTIME_DIR/workspace/skills" ]; then
   find "$RUNTIME_DIR/workspace/skills" -maxdepth 1 -type d -name 'chief-*' -exec rm -rf {} +
 fi
 
-for skill_name in chief-ledger chief-circle chief-a2a-service-trade; do
+for skill_name in chief-ledger chief-a2a-service-trade; do
   cp -R "$ROOT_DIR/skills/$skill_name" "$SKILLS_DEST/$skill_name"
 done
 
@@ -30,7 +30,6 @@ This installs:
 ```text
 runtime/config/bin/chief
 runtime/workspace/.agents/skills/chief-ledger
-runtime/workspace/.agents/skills/chief-circle
 runtime/workspace/.agents/skills/chief-a2a-service-trade
 ```
 
@@ -53,21 +52,21 @@ On the host:
 test -x runtime/config/bin/chief
 runtime/config/bin/chief ledger health
 runtime/config/bin/chief ledger state
-runtime/config/bin/chief circle health
-runtime/config/bin/chief circle tools
 ```
 
 The hosted Chief endpoints are built into the `chief` command. Override
-`CHIEF_LEDGER_URL` or `CHIEF_CIRCLE_MCP_URL` only when pointing the same install
-kit at another deployment. The ledger URL may be either a service base URL or an
-MCP URL; the CLI strips the trailing `/mcp/` internally when it needs to call
-ledger REST endpoints such as `/health` or `/ledger/state`.
+`CHIEF_LEDGER_URL` only when pointing the same install kit at another deployment.
+The ledger URL may be either a service base URL or an MCP URL; the CLI strips the
+trailing `/mcp/` internally when it needs to call ledger REST endpoints such as
+`/health` or `/ledger/state`.
 
 Ensure the runtime config allows the `chief` command.
 
 ## Agent Rules
 
-- Use `chief` as the local entrypoint for Chief ledger and Circle operations.
+- Use `chief` as the local entrypoint for Chief ledger operations.
+- Use `chief ledger wallet get-or-create '<json>'` to create or reuse the
+  backend Agent Wallet binding and ensure the matching ledger account exists.
 - Before payment, escrow lock, release, or refund, run `chief ledger route '<json-intent>'`.
 - Continue only with the returned `allowedTools` or command family.
 - If routing returns `needs_clarification`, ask the user before proceeding.
