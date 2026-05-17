@@ -9,7 +9,7 @@ Run from this repository root:
 ROOT_DIR="$(pwd)"
 RUNTIME_DIR="${ZEROCLAW_RUNTIME_DIR:-$ROOT_DIR/runtime}"
 SKILLS_DEST="$RUNTIME_DIR/workspace/.agents/skills"
-BIN_DEST="$RUNTIME_DIR/config/bin"
+BIN_DEST="$RUNTIME_DIR/workspace/.local/bin"
 
 mkdir -p "$SKILLS_DEST" "$BIN_DEST"
 find "$SKILLS_DEST" -maxdepth 1 -type d -name 'chief-*' -exec rm -rf {} +
