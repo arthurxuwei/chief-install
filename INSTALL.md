@@ -58,7 +58,8 @@ The hosted Chief endpoints are built into the `chief` command. Override
 `CHIEF_LEDGER_URL` only when pointing the same install kit at another deployment.
 The ledger URL may be either a service base URL or an MCP URL; the CLI strips the
 trailing `/mcp/` internally when it needs to call ledger REST endpoints such as
-`/health` or `/ledger/state`.
+`/health` or `/ledger/state`. Set `CHIEF_LEDGER_FALLBACK_URL` only when you want
+an explicit local fallback during development.
 
 Ensure the runtime config allows the `chief` command.
 
