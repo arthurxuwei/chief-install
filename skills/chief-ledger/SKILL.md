@@ -3,8 +3,8 @@ name: chief-ledger
 description: |
   Ledger and escrow capability for the local Chief stack. Use when the user asks about
   Agent Wallet onboarding, offchain balances, escrow state, A2A settlement,
-  funding/onramp ledger state, payment routing, creating escrow, releasing escrow,
-  refunding escrow, or inspecting ledger health.
+  direct Agent-to-Agent transfer, funding/onramp ledger state, payment routing,
+  creating escrow, releasing escrow, refunding escrow, or inspecting ledger health.
 metadata:
   author: "Chief"
   version: "0.1.0"
@@ -26,6 +26,7 @@ Use the local `chief` CLI as the command entrypoint for ledger operations from Z
 - Any funding, payment, escrow lock, release, or refund must route payment intent first.
 - After routing, use only the returned `allowedTools` / command family.
 - If routing returns `needs_clarification`, ask the user before funding, paying, locking, releasing, or refunding.
+- Direct immediate internal Agent-to-Agent payments use `chief ledger transfer` only after routing returns `agent_wallet_transfer`. This path must complete a real Circle USDC transfer before ledger available balances are updated.
 - Escrow is for asynchronous A2A task settlement: create locks buyer balance, release pays seller, refund returns buyer funds.
 - Service purchases between agents must use ledger escrow. Do not pay the seller directly from an Agent Wallet during offer acceptance, prepayment, service delivery, or final acceptance.
 - EigenFlux messages are for discovery and negotiation only; the payment state of record is the ledger escrow.
@@ -48,7 +49,7 @@ Use this protocol for agent-to-agent service sales:
 
 For autonomous A2A trades, the EigenFlux private conversation is the delivery channel and the ledger escrow is the payment state. Public broadcasts are useful for discovery, but they are not reliable proof that the counterparty received an acceptance or delivery.
 
-Circle wallet transfer is never part of the agent-facing service trade protocol. When real settlement is enabled, ledger release triggers the backend Agent Wallet transfer; agents must not call direct transfer tools themselves.
+Direct Agent Wallet transfer is never part of the agent-facing service trade protocol. When real settlement is enabled, ledger release triggers the backend Agent Wallet transfer for service trades; agents must not call direct transfer tools for offer acceptance, prepayment, service delivery, or final acceptance.
 
 ## Quick Reference
 
@@ -81,6 +82,22 @@ payload. The response includes both the wallet binding and the ledger account.
 chief ledger route '{"deliveryMode":"async_task","requiresAcceptance":true,"amountAtomic":"1000000","asset":"USDC"}'
 ```
 
+For immediate internal Agent-to-Agent transfer without acceptance or escrow:
+
+```bash
+chief ledger route '{"deliveryMode":"agent_transfer","requiresAcceptance":false,"amountAtomic":"1000000","asset":"USDC"}'
+```
+
+### Direct Agent Transfer
+
+Only after routing returns `agent_wallet_transfer`:
+
+```bash
+chief ledger transfer '{"fromAgentId":"agent_sender","toAgentId":"agent_receiver","amountAtomic":"1000000","reason":"direct payment"}'
+```
+
+This command performs the real Circle USDC transfer first. Ledger available balances are updated only after Circle succeeds.
+
 ### Create Escrow
 
 Only after routing allows escrow:
@@ -103,5 +120,6 @@ chief ledger escrow refund ESCROW_ID
 - Summarize balances and escrow state in user-facing language.
 - Do not expose internal raw JSON unless the user asks for details.
 - For write actions, state the target agent ids, amount, and escrow id before executing.
+- For direct transfers, state the sender agent id, receiver agent id, and amount before executing.
 - Never invent balances or settlement state; use `chief ledger state`.
 - When asked whether a buyer has prepaid or paid, cite the escrow id and status (`locked`, `released`, or `refunded`).

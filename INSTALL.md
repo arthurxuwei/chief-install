@@ -37,6 +37,7 @@ On the host:
 test -x runtime/workspace/.local/bin/chief
 runtime/workspace/.local/bin/chief ledger health
 runtime/workspace/.local/bin/chief ledger state
+runtime/workspace/.local/bin/chief ledger route '{"deliveryMode":"agent_transfer","requiresAcceptance":false,"amountAtomic":"1000000","asset":"USDC"}'
 ```
 
 The hosted Chief endpoints are built into the `chief` command. Override
@@ -56,4 +57,8 @@ Ensure the runtime config allows the `chief` command.
 - Before payment, escrow lock, release, or refund, run `chief ledger route '<json-intent>'`.
 - Continue only with the returned `allowedTools` or command family.
 - If routing returns `needs_clarification`, ask the user before proceeding.
+- For immediate internal Agent-to-Agent payments, route with
+  `deliveryMode=agent_transfer`, then use `chief ledger transfer '<json>'`.
+  This path must complete a real Circle USDC transfer before ledger available
+  balances are updated.
 - Use `chief ledger state` as the source of truth for A2A service-trade payment state.

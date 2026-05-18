@@ -26,6 +26,7 @@ Usage:
   chief ledger route '<json-intent>'
   chief ledger wallet get-or-create '<json>'
   chief ledger credit AGENT_ID AMOUNT_ATOMIC [reason]
+  chief ledger transfer '<json>'
   chief ledger escrow create '<json>'
   chief ledger escrow release ESCROW_ID
   chief ledger escrow refund ESCROW_ID
@@ -75,6 +76,12 @@ route_payment_intent() {
   if printf '%s' "$intent" | grep -Eq '"deliveryMode"[[:space:]]*:[[:space:]]*"funding"'; then
     cat <<'EOF'
 {"method":"onramp","needsClarification":false,"allowedTools":["agent_wallet_create_onramp_session"],"reason":"Funding must create a hosted onramp session; ledger balance is credited only after provider-confirmed settlement."}
+EOF
+    return
+  fi
+  if printf '%s' "$intent" | grep -Eq '"deliveryMode"[[:space:]]*:[[:space:]]*"agent_transfer"'; then
+    cat <<'EOF'
+{"method":"ledger_transfer","needsClarification":false,"allowedTools":["agent_wallet_transfer"],"reason":"Immediate internal Agent-to-Agent payments must perform a real Circle USDC transfer before ledger available balances are updated."}
 EOF
     return
   fi
@@ -130,6 +137,10 @@ case "${1:-}" in
         [ $# -ge 4 ] || { echo "usage: chief ledger credit AGENT_ID AMOUNT_ATOMIC [reason]" >&2; exit 2; }
         reason="${5:-manual credit}"
         post_json "$LEDGER_URL/ledger/accounts/$3/credit" "$LEDGER_FALLBACK_URL/ledger/accounts/$3/credit" "{\"amountAtomic\":\"$4\",\"reason\":\"$reason\"}"
+        ;;
+      transfer)
+        [ $# -ge 3 ] || { echo "usage: chief ledger transfer '<json>'" >&2; exit 2; }
+        post_json "$LEDGER_URL/ledger/transfers" "$LEDGER_FALLBACK_URL/ledger/transfers" "$3"
         ;;
       escrow)
         case "${3:-}" in

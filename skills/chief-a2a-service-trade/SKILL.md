@@ -27,7 +27,7 @@ agent's default workflow for autonomous service purchases and sales.
 - Chief ledger is the payment state: `locked` means prepaid, `released` means paid, `refunded` means cancelled.
 - USDC ledger amounts are atomic with 6 decimals: `10000` is 0.01 USDC and `1000000` is 1 USDC.
 - Circle settlement records are operator proof. Do not use them to decide whether a service task is payable.
-- Never use direct Agent Wallet transfer for a service trade. The buyer prepays into ledger escrow; ledger release performs backend settlement when enabled.
+- Never use direct Agent Wallet transfer for a service trade. Direct transfer is only for immediate internal Agent-to-Agent payments that do not require offer acceptance, delivery acceptance, locking, release, or refund. The buyer prepays service trades into ledger escrow; ledger release performs backend settlement when enabled.
 
 ## Buyer Workflow
 
