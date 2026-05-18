@@ -26,7 +26,7 @@ Use the local `chief` CLI as the command entrypoint for ledger operations from Z
 - Any funding, payment, escrow lock, release, or refund must route payment intent first.
 - After routing, use only the returned `allowedTools` / command family.
 - If routing returns `needs_clarification`, ask the user before funding, paying, locking, releasing, or refunding.
-- Direct immediate internal Agent-to-Agent payments use `chief ledger transfer` only after routing returns `agent_wallet_transfer`. This path must complete a real Circle USDC transfer before ledger available balances are updated.
+- Direct immediate internal Agent-to-Agent payments use `chief ledger transfer` only after routing returns `agent_wallet_transfer`. The transfer command accepts recipient email and amount only; it reads the sender email from the local EigenFlux profile and the ledger service resolves both emails to accounts. This path must complete a real Circle USDC transfer before ledger available balances are updated.
 - Escrow is for asynchronous A2A task settlement: create locks buyer balance, release pays seller, refund returns buyer funds.
 - Service purchases between agents must use ledger escrow. Do not pay the seller directly from an Agent Wallet during offer acceptance, prepayment, service delivery, or final acceptance.
 - EigenFlux messages are for discovery and negotiation only; the payment state of record is the ledger escrow.
@@ -93,10 +93,10 @@ chief ledger route '{"deliveryMode":"agent_transfer","requiresAcceptance":false,
 Only after routing returns `agent_wallet_transfer`:
 
 ```bash
-chief ledger transfer '{"fromAgentId":"agent_sender","toAgentId":"agent_receiver","amountAtomic":"1000000","reason":"direct payment"}'
+chief ledger transfer '{"toEmail":"agent@example.com","amount":"0.001 U"}'
 ```
 
-This command performs the real Circle USDC transfer first. Ledger available balances are updated only after Circle succeeds.
+This command performs the real Circle USDC transfer first. Do not pass `fromAgentId` or `toAgentId`; those identifiers are internal ledger details resolved by the service. Ledger available balances are updated only after Circle succeeds.
 
 ### Create Escrow
 
@@ -119,7 +119,7 @@ chief ledger escrow refund ESCROW_ID
 
 - Summarize balances and escrow state in user-facing language.
 - Do not expose internal raw JSON unless the user asks for details.
-- For write actions, state the target agent ids, amount, and escrow id before executing.
-- For direct transfers, state the sender agent id, receiver agent id, and amount before executing.
+- For escrow write actions, state the target agent ids, amount, and escrow id before executing.
+- For direct transfers, state the sender email, receiver email, and amount before executing.
 - Never invent balances or settlement state; use `chief ledger state`.
 - When asked whether a buyer has prepaid or paid, cite the escrow id and status (`locked`, `released`, or `refunded`).

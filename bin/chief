@@ -26,7 +26,7 @@ Usage:
   chief ledger route '<json-intent>'
   chief ledger wallet get-or-create '<json>'
   chief ledger credit AGENT_ID AMOUNT_ATOMIC [reason]
-  chief ledger transfer '<json>'
+  chief ledger transfer '{"toEmail":"agent@example.com","amount":"0.001 U"}'
   chief ledger escrow create '<json>'
   chief ledger escrow release ESCROW_ID
   chief ledger escrow refund ESCROW_ID
@@ -108,6 +108,74 @@ EOF
 EOF
 }
 
+transfer_payload_from_email() {
+  request="$1"
+  profile_path="${CHIEF_AGENT_PROFILE_PATH:-}"
+  if [ -z "$profile_path" ] && [ -n "${ZEROCLAW_WORKSPACE:-}" ]; then
+    profile_path="$ZEROCLAW_WORKSPACE/.eigenflux/servers/eigenflux/profile.json"
+  fi
+  profile="{}"
+  if [ -n "$profile_path" ] && [ -f "$profile_path" ]; then
+    profile="$(cat "$profile_path")"
+  fi
+
+  python3 -c '
+import json
+import re
+import sys
+from decimal import Decimal, InvalidOperation
+
+request = json.loads(sys.argv[1])
+profile = json.loads(sys.argv[2])
+
+if not isinstance(request, dict):
+    raise SystemExit("transfer payload must be a JSON object")
+if "fromAgentId" in request or "toAgentId" in request:
+    raise SystemExit("fromAgentId/toAgentId are internal; use toEmail with amount or amountAtomic")
+
+to_email = str(request.get("toEmail") or request.get("email") or "").strip().lower()
+if not to_email:
+    raise SystemExit("transfer requires toEmail")
+
+def parse_amount_atomic(value):
+    if value is None:
+        raise SystemExit("transfer requires amount or amountAtomic")
+    text = str(value).strip()
+    if re.fullmatch(r"[0-9]+", text):
+        amount = int(text)
+    else:
+        match = re.fullmatch(r"([0-9]+(?:\.[0-9]+)?)\s*(?:U|USDC)?", text, re.IGNORECASE)
+        if not match:
+            raise SystemExit("amount must be an integer atomic value or decimal USDC like 0.001 U")
+        try:
+            decimal = Decimal(match.group(1))
+        except InvalidOperation:
+            raise SystemExit("amount must be an integer atomic value or decimal USDC like 0.001 U")
+        atomic_decimal = decimal * Decimal(1000000)
+        if atomic_decimal != atomic_decimal.to_integral_value():
+            raise SystemExit("amount is smaller than one atomic USDC unit")
+        amount = int(atomic_decimal)
+    if amount <= 0:
+        raise SystemExit("amount must be positive")
+    return str(amount)
+
+amount_atomic = parse_amount_atomic(request.get("amountAtomic", request.get("amount")))
+profile_email = str(profile.get("email") or "").strip().lower()
+if not profile_email:
+    raise SystemExit("current ZeroClaw profile is missing email")
+if profile_email == to_email:
+    raise SystemExit("sender and receiver must be different emails")
+
+reason = str(request.get("reason") or f"direct transfer to {to_email}")
+print(json.dumps({
+    "fromEmail": profile_email,
+    "toEmail": to_email,
+    "amountAtomic": amount_atomic,
+    "reason": reason,
+}, separators=(",", ":")))
+' "$request" "$profile"
+}
+
 case "${1:-}" in
   ledger)
     case "${2:-}" in
@@ -139,8 +207,18 @@ case "${1:-}" in
         post_json "$LEDGER_URL/ledger/accounts/$3/credit" "${LEDGER_FALLBACK_URL:+$LEDGER_FALLBACK_URL/ledger/accounts/$3/credit}" "{\"amountAtomic\":\"$4\",\"reason\":\"$reason\"}"
         ;;
       transfer)
-        [ $# -ge 3 ] || { echo "usage: chief ledger transfer '<json>'" >&2; exit 2; }
-        post_json "$LEDGER_URL/ledger/transfers" "${LEDGER_FALLBACK_URL:+$LEDGER_FALLBACK_URL/ledger/transfers}" "$3"
+        [ $# -ge 3 ] || { echo "usage: chief ledger transfer '{\"toEmail\":\"agent@example.com\",\"amount\":\"0.001 U\"}'" >&2; exit 2; }
+        route_result="$(route_payment_intent '{"deliveryMode":"agent_transfer","requiresAcceptance":false,"asset":"USDC"}')"
+        if ! printf '%s' "$route_result" | grep -Eq '"needsClarification"[[:space:]]*:[[:space:]]*false'; then
+          printf '%s\n' "$route_result" >&2
+          exit 2
+        fi
+        if ! printf '%s' "$route_result" | grep -q '"agent_wallet_transfer"'; then
+          printf '%s\n' "$route_result" >&2
+          exit 2
+        fi
+        transfer_body="$(transfer_payload_from_email "$3")" || exit 2
+        post_json "$LEDGER_URL/ledger/transfers" "${LEDGER_FALLBACK_URL:+$LEDGER_FALLBACK_URL/ledger/transfers}" "$transfer_body"
         ;;
       escrow)
         case "${3:-}" in

@@ -38,6 +38,7 @@ test -x runtime/workspace/.local/bin/chief
 runtime/workspace/.local/bin/chief ledger health
 runtime/workspace/.local/bin/chief ledger state
 runtime/workspace/.local/bin/chief ledger route '{"deliveryMode":"agent_transfer","requiresAcceptance":false,"amountAtomic":"1000000","asset":"USDC"}'
+runtime/workspace/.local/bin/chief ledger transfer '{"toEmail":"agent@example.com","amount":"0.001 U"}'
 ```
 
 The hosted Chief endpoints are built into the `chief` command. Override
@@ -59,6 +60,9 @@ Ensure the runtime config allows the `chief` command.
 - If routing returns `needs_clarification`, ask the user before proceeding.
 - For immediate internal Agent-to-Agent payments, route with
   `deliveryMode=agent_transfer`, then use `chief ledger transfer '<json>'`.
+  Transfer JSON must use recipient email and amount, for example
+  `{"toEmail":"agent@example.com","amount":"0.001 U"}`. Do not pass
+  `fromAgentId` or `toAgentId`; the ledger service resolves emails to accounts.
   This path must complete a real Circle USDC transfer before ledger available
   balances are updated.
 - Use `chief ledger state` as the source of truth for A2A service-trade payment state.
