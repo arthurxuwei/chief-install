@@ -9,7 +9,8 @@ needs:
 - `bin/chief`: local CLI entrypoint used by agents
 - `skills/chief-ledger`: ledger, Agent Wallet onboarding, and escrow workflow skill
 - `skills/chief-a2a-service-trade`: A2A service-trade settlement skill
-- `INSTALL.md`: copy-and-mount install steps
+- `install.sh`: curl-pipe installer for ZeroClaw runtime files
+- `INSTALL.md`: install and verification steps
 
 See [INSTALL.md](INSTALL.md) for installation.
 
