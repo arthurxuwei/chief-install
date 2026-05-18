@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 import threading
@@ -52,6 +53,7 @@ class ChiefTransferTests(unittest.TestCase):
         self.thread.start()
         self.temp_dir = tempfile.TemporaryDirectory()
         workspace = Path(self.temp_dir.name) / "workspace"
+        self.workspace = workspace
         profile_dir = workspace / ".eigenflux" / "servers" / "eigenflux"
         profile_dir.mkdir(parents=True)
         (profile_dir / "profile.json").write_text(
@@ -85,6 +87,37 @@ class ChiefTransferTests(unittest.TestCase):
             check=False,
         )
 
+    def run_chief_without_python(self, payload):
+        bin_dir = Path(self.temp_dir.name) / "bin-no-python"
+        bin_dir.mkdir()
+        for command in ["env", "sh", "cat", "curl", "grep", "sed", "head", "tr", "awk"]:
+            source = shutil.which(command)
+            self.assertIsNotNone(source, command)
+            (bin_dir / command).symlink_to(source)
+        env = {
+            **self.env,
+            "PATH": str(bin_dir),
+        }
+        return subprocess.run(
+            [str(CHIEF), "ledger", "transfer", json.dumps(payload)],
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+    def run_chief_from_workspace_without_env(self, payload):
+        env = dict(self.env)
+        env.pop("ZEROCLAW_WORKSPACE", None)
+        return subprocess.run(
+            [str(CHIEF), "ledger", "transfer", json.dumps(payload)],
+            cwd=self.workspace,
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
     def test_transfer_accepts_email_and_amount_only(self):
         result = self.run_chief({"toEmail": "receiver@example.com", "amount": "0.001 U"})
 
@@ -101,6 +134,33 @@ class ChiefTransferTests(unittest.TestCase):
             ],
         )
         self.assertEqual(LedgerHandler.get_count, 0)
+
+    def test_transfer_accepts_email_and_amount_without_python(self):
+        result = self.run_chief_without_python(
+            {"toEmail": "receiver@example.com", "amount": "0.001 U"}
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            LedgerHandler.posted_transfers,
+            [
+                {
+                    "fromEmail": "sender@example.com",
+                    "toEmail": "receiver@example.com",
+                    "amountAtomic": "1000",
+                    "reason": "direct transfer to receiver@example.com",
+                }
+            ],
+        )
+        self.assertEqual(LedgerHandler.get_count, 0)
+
+    def test_transfer_finds_profile_from_workspace_cwd(self):
+        result = self.run_chief_from_workspace_without_env(
+            {"toEmail": "receiver@example.com", "amount": "0.001 U"}
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(LedgerHandler.posted_transfers[0]["fromEmail"], "sender@example.com")
 
     def test_transfer_rejects_agent_id_payloads(self):
         result = self.run_chief(

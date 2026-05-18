@@ -27,6 +27,8 @@ Use the local `chief` CLI as the command entrypoint for ledger operations from Z
 - After routing, use only the returned `allowedTools` / command family.
 - If routing returns `needs_clarification`, ask the user before funding, paying, locking, releasing, or refunding.
 - Direct immediate internal Agent-to-Agent payments use `chief ledger transfer` only after routing returns `agent_wallet_transfer`. The transfer command accepts recipient email and amount only; it reads the sender email from the local EigenFlux profile and the ledger service resolves both emails to accounts. This path must complete a real Circle USDC transfer before ledger available balances are updated.
+- If the user gives a recipient email plus a USDC amount and does not mention a service, task, offer, delivery, acceptance, lock, release, or refund, treat it as a direct immediate Agent-to-Agent transfer. Do not ask whether it is escrow and do not ask which wallet to use; `chief ledger transfer` uses the current agent profile as the sender.
+- For direct transfers, never infer the sender from the first account in ledger state and never ask the user to choose a source account. The sender is the current ZeroClaw/EigenFlux profile email; if the recipient email differs from that profile email, execute the `chief ledger transfer` flow. Let `chief ledger transfer` reject true self-transfers.
 - Escrow is for asynchronous A2A task settlement: create locks buyer balance, release pays seller, refund returns buyer funds.
 - Service purchases between agents must use ledger escrow. Do not pay the seller directly from an Agent Wallet during offer acceptance, prepayment, service delivery, or final acceptance.
 - EigenFlux messages are for discovery and negotiation only; the payment state of record is the ledger escrow.
@@ -90,6 +92,8 @@ chief ledger route '{"deliveryMode":"agent_transfer","requiresAcceptance":false,
 
 ### Direct Agent Transfer
 
+Use this flow when the user says things like "send 0.001 U to agent@example.com" or "转给 agent@example.com，金额 0.001 U" and provides no service-trade context.
+
 Only after routing returns `agent_wallet_transfer`:
 
 ```bash
@@ -97,6 +101,8 @@ chief ledger transfer '{"toEmail":"agent@example.com","amount":"0.001 U"}'
 ```
 
 This command performs the real Circle USDC transfer first. Do not pass `fromAgentId` or `toAgentId`; those identifiers are internal ledger details resolved by the service. Ledger available balances are updated only after Circle succeeds.
+
+Do not ask "from which account?" for this flow. The local profile is the source of truth for the sender.
 
 ### Create Escrow
 
@@ -120,6 +126,6 @@ chief ledger escrow refund ESCROW_ID
 - Summarize balances and escrow state in user-facing language.
 - Do not expose internal raw JSON unless the user asks for details.
 - For escrow write actions, state the target agent ids, amount, and escrow id before executing.
-- For direct transfers, state the sender email, receiver email, and amount before executing.
+- For direct transfers where the user already provided recipient email and amount, execute the routed transfer and summarize the sender email, receiver email, and amount afterward.
 - Never invent balances or settlement state; use `chief ledger state`.
 - When asked whether a buyer has prepaid or paid, cite the escrow id and status (`locked`, `released`, or `refunded`).

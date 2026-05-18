@@ -114,12 +114,25 @@ transfer_payload_from_email() {
   if [ -z "$profile_path" ] && [ -n "${ZEROCLAW_WORKSPACE:-}" ]; then
     profile_path="$ZEROCLAW_WORKSPACE/.eigenflux/servers/eigenflux/profile.json"
   fi
+  if [ -z "$profile_path" ]; then
+    for candidate in \
+      "$PWD/.eigenflux/servers/eigenflux/profile.json" \
+      "/zeroclaw-data/workspace/.eigenflux/servers/eigenflux/profile.json" \
+      "${HOME:-}/.eigenflux/servers/eigenflux/profile.json"
+    do
+      if [ -n "$candidate" ] && [ -f "$candidate" ]; then
+        profile_path="$candidate"
+        break
+      fi
+    done
+  fi
   profile="{}"
   if [ -n "$profile_path" ] && [ -f "$profile_path" ]; then
     profile="$(cat "$profile_path")"
   fi
 
-  python3 -c '
+  if command -v python3 >/dev/null 2>&1; then
+    python3 -c '
 import json
 import re
 import sys
@@ -174,6 +187,84 @@ print(json.dumps({
     "reason": reason,
 }, separators=(",", ":")))
 ' "$request" "$profile"
+    return
+  fi
+
+  if printf '%s' "$request" | grep -Eq '"fromAgentId"[[:space:]]*:|"toAgentId"[[:space:]]*:'; then
+    echo "fromAgentId/toAgentId are internal; use toEmail with amount or amountAtomic" >&2
+    return 2
+  fi
+
+  json_string_field() {
+    key="$1"
+    body="$2"
+    printf '%s' "$body" | sed -n "s/.*\"$key\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" | head -n 1
+  }
+
+  to_email="$(json_string_field toEmail "$request")"
+  if [ -z "$to_email" ]; then
+    to_email="$(json_string_field email "$request")"
+  fi
+  to_email="$(printf '%s' "$to_email" | tr '[:upper:]' '[:lower:]')"
+  if [ -z "$to_email" ]; then
+    echo "transfer requires toEmail" >&2
+    return 2
+  fi
+
+  amount_text="$(json_string_field amountAtomic "$request")"
+  if [ -z "$amount_text" ]; then
+    amount_text="$(json_string_field amount "$request")"
+  fi
+  if [ -z "$amount_text" ]; then
+    echo "transfer requires amount or amountAtomic" >&2
+    return 2
+  fi
+  amount_compact="$(printf '%s' "$amount_text" | tr -d '[:space:]' | sed 's/[Uu][Ss][Dd][Cc]$//; s/[Uu]$//')"
+  amount_atomic="$(awk -v value="$amount_compact" '
+    BEGIN {
+      if (value ~ /^[0-9]+$/) {
+        amount = value + 0
+      } else if (value ~ /^[0-9]+(\.[0-9]+)?$/) {
+        amount = value * 1000000
+      } else {
+        exit 2
+      }
+      if (amount <= 0) {
+        exit 3
+      }
+      rounded = int(amount)
+      if (amount != rounded) {
+        exit 4
+      }
+      printf "%.0f", amount
+    }
+  ')" || {
+    echo "amount must be an integer atomic value or decimal USDC like 0.001 U" >&2
+    return 2
+  }
+
+  profile_email="$(json_string_field email "$profile" | tr '[:upper:]' '[:lower:]')"
+  if [ -z "$profile_email" ]; then
+    echo "current ZeroClaw profile is missing email" >&2
+    return 2
+  fi
+  if [ "$profile_email" = "$to_email" ]; then
+    echo "sender and receiver must be different emails" >&2
+    return 2
+  fi
+
+  reason="$(json_string_field reason "$request")"
+  if [ -z "$reason" ]; then
+    reason="direct transfer to $to_email"
+  fi
+  json_escape() {
+    printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+  }
+  printf '{"fromEmail":"%s","toEmail":"%s","amountAtomic":"%s","reason":"%s"}\n' \
+    "$(json_escape "$profile_email")" \
+    "$(json_escape "$to_email")" \
+    "$(json_escape "$amount_atomic")" \
+    "$(json_escape "$reason")"
 }
 
 case "${1:-}" in

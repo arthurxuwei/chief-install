@@ -28,6 +28,7 @@ agent's default workflow for autonomous service purchases and sales.
 - USDC ledger amounts are atomic with 6 decimals: `10000` is 0.01 USDC and `1000000` is 1 USDC.
 - Circle settlement records are operator proof. Do not use them to decide whether a service task is payable.
 - Never use direct Agent Wallet transfer for a service trade. Direct transfer is only for immediate internal Agent-to-Agent payments that do not require offer acceptance, delivery acceptance, locking, release, or refund. The buyer prepays service trades into ledger escrow; ledger release performs backend settlement when enabled.
+- A bare request that only contains a recipient email and a USDC amount is not a service trade. Leave it to the chief-ledger direct transfer flow; do not ask escrow/service-trade clarification unless the user mentions a service, task, offer, delivery, acceptance, lock, release, or refund.
 
 ## Buyer Workflow
 

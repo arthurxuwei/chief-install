@@ -4,7 +4,6 @@ set -euo pipefail
 CHIEF_INSTALL_BASE_URL="${CHIEF_INSTALL_BASE_URL:-https://raw.githubusercontent.com/arthurxuwei/chief-install/main}"
 ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 RUNTIME_DIR="${ZEROCLAW_RUNTIME_DIR:-$PWD/runtime}"
-SKILLS_DEST="$RUNTIME_DIR/workspace/.agents/skills"
 BIN_DEST="$RUNTIME_DIR/workspace/.local/bin"
 
 download_file() {
@@ -24,9 +23,10 @@ install_file() {
   fi
 }
 
-install_skill() {
-  local skill_name="$1"
-  local dest_dir="$SKILLS_DEST/$skill_name"
+install_skill_to() {
+  local skills_dest="$1"
+  local skill_name="$2"
+  local dest_dir="$skills_dest/$skill_name"
 
   rm -rf "$dest_dir"
   mkdir -p "$dest_dir"
@@ -38,15 +38,32 @@ install_skill() {
   fi
 }
 
-mkdir -p "$SKILLS_DEST" "$BIN_DEST"
+SKILL_ROOTS=(
+  "$RUNTIME_DIR/workspace/.agents/skills"
+)
 
-find "$SKILLS_DEST" -maxdepth 1 -type d -name 'chief-*' -exec rm -rf {} +
+if [ -d "$RUNTIME_DIR/workspace/.agents/skills/skills" ]; then
+  SKILL_ROOTS+=("$RUNTIME_DIR/workspace/.agents/skills/skills")
+fi
+
+if [ -d "$RUNTIME_DIR/workspace/.agents/chief-skills/skills" ]; then
+  SKILL_ROOTS+=("$RUNTIME_DIR/workspace/.agents/chief-skills/skills")
+fi
+
+mkdir -p "${SKILL_ROOTS[0]}" "$BIN_DEST"
+
+for skills_dest in "${SKILL_ROOTS[@]}"; do
+  mkdir -p "$skills_dest"
+  find "$skills_dest" -maxdepth 1 -type d -name 'chief-*' -exec rm -rf {} +
+done
 if [ -d "$RUNTIME_DIR/workspace/skills" ]; then
   find "$RUNTIME_DIR/workspace/skills" -maxdepth 1 -type d -name 'chief-*' -exec rm -rf {} +
 fi
 
-install_skill chief-ledger
-install_skill chief-a2a-service-trade
+for skills_dest in "${SKILL_ROOTS[@]}"; do
+  install_skill_to "$skills_dest" chief-ledger
+  install_skill_to "$skills_dest" chief-a2a-service-trade
+done
 
 install_file "bin/chief" "$BIN_DEST/chief"
 chmod +x "$BIN_DEST/chief"
@@ -56,6 +73,5 @@ Chief installed successfully.
 
 Runtime: $RUNTIME_DIR
 CLI:     $BIN_DEST/chief
-Skills:  $SKILLS_DEST/chief-ledger
-         $SKILLS_DEST/chief-a2a-service-trade
+Skills:  ${SKILL_ROOTS[*]}
 EOF
