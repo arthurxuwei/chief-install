@@ -38,32 +38,25 @@ install_skill_to() {
   fi
 }
 
-SKILL_ROOTS=(
-  "$RUNTIME_DIR/workspace/.agents/skills"
-)
+SKILLS_DEST="$RUNTIME_DIR/workspace/skills"
 
-if [ -d "$RUNTIME_DIR/workspace/.agents/skills/skills" ]; then
-  SKILL_ROOTS+=("$RUNTIME_DIR/workspace/.agents/skills/skills")
-fi
+mkdir -p "$SKILLS_DEST" "$BIN_DEST"
 
-if [ -d "$RUNTIME_DIR/workspace/.agents/chief-skills/skills" ]; then
-  SKILL_ROOTS+=("$RUNTIME_DIR/workspace/.agents/chief-skills/skills")
-fi
+find "$SKILLS_DEST" -maxdepth 1 -type d -name 'chief-*' -exec rm -rf {} +
 
-mkdir -p "${SKILL_ROOTS[0]}" "$BIN_DEST"
-
-for skills_dest in "${SKILL_ROOTS[@]}"; do
-  mkdir -p "$skills_dest"
-  find "$skills_dest" -maxdepth 1 -type d -name 'chief-*' -exec rm -rf {} +
+# Clean up duplicate Chief installs created by older installer versions.
+for legacy_dest in \
+  "$RUNTIME_DIR/workspace/.agents/skills" \
+  "$RUNTIME_DIR/workspace/.agents/skills/skills" \
+  "$RUNTIME_DIR/workspace/.agents/chief-skills/skills"
+do
+  if [ -d "$legacy_dest" ]; then
+    find "$legacy_dest" -maxdepth 1 -type d -name 'chief-*' -exec rm -rf {} +
+  fi
 done
-if [ -d "$RUNTIME_DIR/workspace/skills" ]; then
-  find "$RUNTIME_DIR/workspace/skills" -maxdepth 1 -type d -name 'chief-*' -exec rm -rf {} +
-fi
 
-for skills_dest in "${SKILL_ROOTS[@]}"; do
-  install_skill_to "$skills_dest" chief-ledger
-  install_skill_to "$skills_dest" chief-a2a-service-trade
-done
+install_skill_to "$SKILLS_DEST" chief-ledger
+install_skill_to "$SKILLS_DEST" chief-a2a-service-trade
 
 install_file "bin/chief" "$BIN_DEST/chief"
 chmod +x "$BIN_DEST/chief"
@@ -73,5 +66,5 @@ Chief installed successfully.
 
 Runtime: $RUNTIME_DIR
 CLI:     $BIN_DEST/chief
-Skills:  ${SKILL_ROOTS[*]}
+Skills:  $SKILLS_DEST
 EOF

@@ -13,8 +13,8 @@ This installs:
 
 ```text
 runtime/workspace/.local/bin/chief
-runtime/workspace/.agents/skills/chief-ledger
-runtime/workspace/.agents/skills/chief-a2a-service-trade
+runtime/workspace/skills/chief-ledger
+runtime/workspace/skills/chief-a2a-service-trade
 ```
 
 `bin/chief` is the repository source file. `runtime/workspace/.local/bin/chief`
@@ -48,7 +48,7 @@ trailing `/mcp/` internally when it needs to call ledger REST endpoints such as
 `/health` or `/ledger/state`. Set `CHIEF_LEDGER_FALLBACK_URL` only when you want
 an explicit local fallback during development.
 
-Ensure the runtime config allows the `chief` command.
+Ensure the runtime config allows the `chief` command. Chief skills are installed under `workspace/skills`; set `skills.open_skills_enabled = false` when you do not want ZeroClaw to sync community skills, and set `skills.allow_scripts = true` when local skills include shell scripts.
 
 ## Agent Rules
 
