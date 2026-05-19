@@ -54,6 +54,55 @@ sanitize_ledger_state() {
   sed -E 's/"availableAtomic"[[:space:]]*:[[:space:]]*"[^"]*",[[:space:]]*//g; s/,[[:space:]]*"availableAtomic"[[:space:]]*:[[:space:]]*"[^"]*"//g'
 }
 
+json_string_field() {
+  key="$1"
+  body="$2"
+  printf '%s' "$body" | sed -n "s/.*\"$key\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" | head -n 1
+}
+
+url_encode_query_value() {
+  printf '%s' "$1" | sed 's/%/%25/g; s/@/%40/g; s/+/%2B/g; s/&/%26/g; s/=/%3D/g; s/ /%20/g'
+}
+
+agent_profile_json() {
+  profile_path="${CHIEF_AGENT_PROFILE_PATH:-}"
+  if [ -z "$profile_path" ] && [ -n "${ZEROCLAW_WORKSPACE:-}" ]; then
+    profile_path="$ZEROCLAW_WORKSPACE/.eigenflux/servers/eigenflux/profile.json"
+  fi
+  if [ -z "$profile_path" ]; then
+    for candidate in \
+      "$PWD/.eigenflux/servers/eigenflux/profile.json" \
+      "/zeroclaw-data/workspace/.eigenflux/servers/eigenflux/profile.json" \
+      "${HOME:-}/.eigenflux/servers/eigenflux/profile.json"
+    do
+      if [ -n "$candidate" ] && [ -f "$candidate" ]; then
+        profile_path="$candidate"
+        break
+      fi
+    done
+  fi
+
+  if [ -n "$profile_path" ] && [ -f "$profile_path" ]; then
+    cat "$profile_path"
+    return
+  fi
+
+  printf '{}\n'
+}
+
+ledger_state_path_for_profile() {
+  profile="$(agent_profile_json)"
+  profile_agent_id="$(json_string_field agent_id "$profile")"
+  if [ -z "$profile_agent_id" ]; then
+    profile_agent_id="$(json_string_field agentId "$profile")"
+  fi
+  if [ -z "$profile_agent_id" ]; then
+    echo "current ZeroClaw profile is missing agent_id" >&2
+    return 2
+  fi
+  printf '/ledger/state?agentId=%s\n' "$(url_encode_query_value "$profile_agent_id")"
+}
+
 post_json() {
   url="$1"
   fallback_url="$2"
@@ -278,7 +327,8 @@ case "${1:-}" in
         get_url "$LEDGER_URL" "$LEDGER_FALLBACK_URL" "/health"
         ;;
       state)
-        get_url "$LEDGER_URL" "$LEDGER_FALLBACK_URL" "/ledger/state" | sanitize_ledger_state
+        state_path="$(ledger_state_path_for_profile)" || exit 2
+        get_url "$LEDGER_URL" "$LEDGER_FALLBACK_URL" "$state_path" | sanitize_ledger_state
         ;;
       route)
         [ $# -ge 3 ] || { echo "usage: chief ledger route '<json-intent>'" >&2; exit 2; }

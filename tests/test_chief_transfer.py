@@ -16,24 +16,46 @@ CHIEF = ROOT / "bin" / "chief"
 class LedgerHandler(BaseHTTPRequestHandler):
     posted_transfers = []
     get_count = 0
+    state_paths = []
 
     def log_message(self, _format, *_args):
         return
 
     def do_GET(self):
         self.get_count += 1
-        if self.path == "/ledger/state":
+        if self.path.startswith("/ledger/state"):
+            self.state_paths.append(self.path)
+            if "agentId=agent_sender" in self.path:
+                accounts = [
+                    {
+                        "agentId": "agent_sender",
+                        "email": "sender@example.com",
+                        "availableAtomic": "940000",
+                        "lockedAtomic": "0",
+                        "circleUsdcBalance": "0.94",
+                    }
+                ]
+            else:
+                accounts = [
+                    {
+                        "agentId": "agent_sender",
+                        "email": "sender@example.com",
+                        "availableAtomic": "940000",
+                        "lockedAtomic": "0",
+                        "circleUsdcBalance": "0.94",
+                    },
+                    {
+                        "agentId": "agent_other",
+                        "email": "other@example.com",
+                        "availableAtomic": "100000",
+                        "lockedAtomic": "0",
+                        "circleUsdcBalance": "0.10",
+                    },
+                ]
             self._json(
                 200,
                 {
-                    "accounts": [
-                        {
-                            "agentId": "agent_sender",
-                            "availableAtomic": "940000",
-                            "lockedAtomic": "0",
-                            "circleUsdcBalance": "0.94",
-                        }
-                    ],
+                    "accounts": accounts,
                     "escrows": [],
                 },
             )
@@ -64,6 +86,7 @@ class ChiefTransferTests(unittest.TestCase):
     def setUp(self):
         LedgerHandler.posted_transfers = []
         LedgerHandler.get_count = 0
+        LedgerHandler.state_paths = []
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), LedgerHandler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -137,7 +160,7 @@ class ChiefTransferTests(unittest.TestCase):
     def run_state_without_python(self):
         bin_dir = Path(self.temp_dir.name) / "bin-no-python-state"
         bin_dir.mkdir()
-        for command in ["env", "sh", "curl", "sed"]:
+        for command in ["env", "sh", "cat", "curl", "sed", "head", "tr"]:
             source = shutil.which(command)
             self.assertIsNotNone(source, command)
             (bin_dir / command).symlink_to(source)
@@ -162,6 +185,13 @@ class ChiefTransferTests(unittest.TestCase):
         payload = json.loads(result.stdout)
         self.assertEqual(payload["accounts"][0]["circleUsdcBalance"], "0.94")
         self.assertEqual(payload["accounts"][0]["lockedAtomic"], "0")
+
+    def test_state_requests_current_profile_scope(self):
+        result = self.run_state_without_python()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("/ledger/state?agentId=agent_sender", LedgerHandler.state_paths)
+        self.assertNotIn("other@example.com", result.stdout)
 
     def test_transfer_accepts_email_and_amount_only(self):
         result = self.run_chief({"toEmail": "receiver@example.com", "amount": "0.001 U"})

@@ -19,7 +19,7 @@ Use the local `chief` CLI as the command entrypoint for ledger operations from Z
 
 ## Core Rules
 
-- Escrow state lives in the standalone `ledger` service. Agent-visible available balance is sourced from Circle by the service. Do not label any balance as Ledger available balance.
+- Escrow state lives in the standalone `ledger` service. Agent-visible available balance is sourced from Circle by the service. `chief ledger state` is scoped to the current profile agent id; never report balances for other ledger accounts. Do not label any balance as Ledger available balance.
 - Agent Wallet onboarding must go through ledger with `chief ledger wallet get-or-create`.
   Ledger creates or reuses the backend wallet binding and ensures the corresponding
   zero-balance ledger account exists.
@@ -66,6 +66,8 @@ chief ledger health
 ```bash
 chief ledger state
 ```
+
+This command reads the local EigenFlux profile and requests ledger state with `agentId=<current agent id>`. If no agent id is available, state must not be treated as global account data.
 
 ### Agent Wallet Onboarding
 
@@ -123,7 +125,7 @@ chief ledger escrow refund ESCROW_ID
 
 ## Response Guidelines
 
-- Summarize Circle-sourced visible balances and escrow state in user-facing language. When reporting current funds, show one available balance only; do not create a separate Ledger available balance row.
+- Summarize only the current agent's Circle-sourced visible balance and related escrow state. Do not list other accounts, ask the user to choose from ledger accounts, or create a separate Ledger available balance row.
 - Do not expose internal raw JSON unless the user asks for details.
 - For escrow write actions, state the target agent ids, amount, and escrow id before executing.
 - For direct transfers where the user already provided recipient email and amount, execute the routed transfer and summarize the sender email, receiver email, and amount afterward.
