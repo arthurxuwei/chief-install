@@ -50,6 +50,10 @@ get_url() {
   fi
 }
 
+sanitize_ledger_state() {
+  sed -E 's/"availableAtomic"[[:space:]]*:[[:space:]]*"[^"]*",[[:space:]]*//g; s/,[[:space:]]*"availableAtomic"[[:space:]]*:[[:space:]]*"[^"]*"//g'
+}
+
 post_json() {
   url="$1"
   fallback_url="$2"
@@ -274,7 +278,7 @@ case "${1:-}" in
         get_url "$LEDGER_URL" "$LEDGER_FALLBACK_URL" "/health"
         ;;
       state)
-        get_url "$LEDGER_URL" "$LEDGER_FALLBACK_URL" "/ledger/state"
+        get_url "$LEDGER_URL" "$LEDGER_FALLBACK_URL" "/ledger/state" | sanitize_ledger_state
         ;;
       route)
         [ $# -ge 3 ] || { echo "usage: chief ledger route '<json-intent>'" >&2; exit 2; }

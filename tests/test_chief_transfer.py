@@ -22,6 +22,22 @@ class LedgerHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         self.get_count += 1
+        if self.path == "/ledger/state":
+            self._json(
+                200,
+                {
+                    "accounts": [
+                        {
+                            "agentId": "agent_sender",
+                            "availableAtomic": "940000",
+                            "lockedAtomic": "0",
+                            "circleUsdcBalance": "0.94",
+                        }
+                    ],
+                    "escrows": [],
+                },
+            )
+            return
         self.send_response(404)
         self.end_headers()
 
@@ -117,6 +133,35 @@ class ChiefTransferTests(unittest.TestCase):
             capture_output=True,
             check=False,
         )
+
+    def run_state_without_python(self):
+        bin_dir = Path(self.temp_dir.name) / "bin-no-python-state"
+        bin_dir.mkdir()
+        for command in ["env", "sh", "curl", "sed"]:
+            source = shutil.which(command)
+            self.assertIsNotNone(source, command)
+            (bin_dir / command).symlink_to(source)
+        env = {
+            **self.env,
+            "PATH": str(bin_dir),
+        }
+        return subprocess.run(
+            [str(CHIEF), "ledger", "state"],
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+    def test_state_hides_available_atomic_to_avoid_ledger_balance_reporting(self):
+        result = self.run_state_without_python()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("availableAtomic", result.stdout)
+        self.assertIn("circleUsdcBalance", result.stdout)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["accounts"][0]["circleUsdcBalance"], "0.94")
+        self.assertEqual(payload["accounts"][0]["lockedAtomic"], "0")
 
     def test_transfer_accepts_email_and_amount_only(self):
         result = self.run_chief({"toEmail": "receiver@example.com", "amount": "0.001 U"})

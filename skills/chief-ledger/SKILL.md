@@ -19,7 +19,7 @@ Use the local `chief` CLI as the command entrypoint for ledger operations from Z
 
 ## Core Rules
 
-- Escrow state lives in the standalone `ledger` service. Agent-visible available balance is sourced from Circle by the service.
+- Escrow state lives in the standalone `ledger` service. Agent-visible available balance is sourced from Circle by the service. Do not label any balance as Ledger available balance.
 - Agent Wallet onboarding must go through ledger with `chief ledger wallet get-or-create`.
   Ledger creates or reuses the backend wallet binding and ensures the corresponding
   zero-balance ledger account exists.
@@ -123,7 +123,7 @@ chief ledger escrow refund ESCROW_ID
 
 ## Response Guidelines
 
-- Summarize Circle-sourced visible balances and escrow state in user-facing language.
+- Summarize Circle-sourced visible balances and escrow state in user-facing language. When reporting current funds, show one available balance only; do not create a separate Ledger available balance row.
 - Do not expose internal raw JSON unless the user asks for details.
 - For escrow write actions, state the target agent ids, amount, and escrow id before executing.
 - For direct transfers where the user already provided recipient email and amount, execute the routed transfer and summarize the sender email, receiver email, and amount afterward.
