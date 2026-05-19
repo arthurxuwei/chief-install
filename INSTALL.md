@@ -63,6 +63,5 @@ Ensure the runtime config allows the `chief` command.
   Transfer JSON must use recipient email and amount, for example
   `{"toEmail":"agent@example.com","amount":"0.001 U"}`. Do not pass
   `fromAgentId` or `toAgentId`; the ledger service resolves emails to accounts.
-  This path must complete a real Circle USDC transfer before ledger available
-  balances are updated.
+  This path must complete a real Circle USDC transfer before the ledger records the transfer.
 - Use `chief ledger state` as the source of truth for A2A service-trade payment state.

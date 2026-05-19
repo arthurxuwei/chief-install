@@ -2,7 +2,7 @@
 name: chief-ledger
 description: |
   Ledger and escrow capability for the local Chief stack. Use when the user asks about
-  Agent Wallet onboarding, offchain balances, escrow state, A2A settlement,
+  Agent Wallet onboarding, Circle-sourced visible balances, escrow state, A2A settlement,
   direct Agent-to-Agent transfer, funding/onramp ledger state, payment routing,
   creating escrow, releasing escrow, refunding escrow, or inspecting ledger health.
 metadata:
@@ -19,14 +19,14 @@ Use the local `chief` CLI as the command entrypoint for ledger operations from Z
 
 ## Core Rules
 
-- Offchain balances and escrow state live in the standalone `ledger` service.
+- Escrow state lives in the standalone `ledger` service. Agent-visible available balance is sourced from Circle by the service.
 - Agent Wallet onboarding must go through ledger with `chief ledger wallet get-or-create`.
   Ledger creates or reuses the backend wallet binding and ensures the corresponding
   zero-balance ledger account exists.
 - Any funding, payment, escrow lock, release, or refund must route payment intent first.
 - After routing, use only the returned `allowedTools` / command family.
 - If routing returns `needs_clarification`, ask the user before funding, paying, locking, releasing, or refunding.
-- Direct immediate internal Agent-to-Agent payments use `chief ledger transfer` only after routing returns `agent_wallet_transfer`. The transfer command accepts recipient email and amount only; it reads the sender email from the local EigenFlux profile and the ledger service resolves both emails to accounts. This path must complete a real Circle USDC transfer before ledger available balances are updated.
+- Direct immediate internal Agent-to-Agent payments use `chief ledger transfer` only after routing returns `agent_wallet_transfer`. The transfer command accepts recipient email and amount only; it reads the sender email from the local EigenFlux profile and the ledger service resolves both emails to accounts. This path must complete a real Circle USDC transfer before the ledger records the transfer.
 - If the user gives a recipient email plus a USDC amount and does not mention a service, task, offer, delivery, acceptance, lock, release, or refund, treat it as a direct immediate Agent-to-Agent transfer. Do not ask whether it is escrow and do not ask which wallet to use; `chief ledger transfer` uses the current agent profile as the sender.
 - For direct transfers, never infer the sender from the first account in ledger state and never ask the user to choose a source account. The sender is the current ZeroClaw/EigenFlux profile email; if the recipient email differs from that profile email, execute the `chief ledger transfer` flow. Let `chief ledger transfer` reject true self-transfers.
 - Escrow is for asynchronous A2A task settlement: create locks buyer balance, release pays seller, refund returns buyer funds.
@@ -100,7 +100,7 @@ Only after routing returns `agent_wallet_transfer`:
 chief ledger transfer '{"toEmail":"agent@example.com","amount":"0.001 U"}'
 ```
 
-This command performs the real Circle USDC transfer first. Do not pass `fromAgentId` or `toAgentId`; those identifiers are internal ledger details resolved by the service. Ledger available balances are updated only after Circle succeeds.
+This command performs the real Circle USDC transfer first. Do not pass `fromAgentId` or `toAgentId`; those identifiers are internal ledger details resolved by the service. The ledger records the transfer only after Circle succeeds.
 
 Do not ask "from which account?" for this flow. The local profile is the source of truth for the sender.
 
@@ -123,7 +123,7 @@ chief ledger escrow refund ESCROW_ID
 
 ## Response Guidelines
 
-- Summarize balances and escrow state in user-facing language.
+- Summarize Circle-sourced visible balances and escrow state in user-facing language.
 - Do not expose internal raw JSON unless the user asks for details.
 - For escrow write actions, state the target agent ids, amount, and escrow id before executing.
 - For direct transfers where the user already provided recipient email and amount, execute the routed transfer and summarize the sender email, receiver email, and amount afterward.

@@ -81,7 +81,7 @@ EOF
   fi
   if printf '%s' "$intent" | grep -Eq '"deliveryMode"[[:space:]]*:[[:space:]]*"agent_transfer"'; then
     cat <<'EOF'
-{"method":"ledger_transfer","needsClarification":false,"allowedTools":["agent_wallet_transfer"],"reason":"Immediate internal Agent-to-Agent payments must perform a real Circle USDC transfer before ledger available balances are updated."}
+{"method":"ledger_transfer","needsClarification":false,"allowedTools":["agent_wallet_transfer"],"reason":"Immediate internal Agent-to-Agent payments must perform a real Circle USDC transfer before the ledger records the transfer."}
 EOF
     return
   fi
