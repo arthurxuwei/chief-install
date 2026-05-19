@@ -26,7 +26,7 @@ Use the local `chief` CLI as the command entrypoint for ledger operations from Z
 - Any funding, payment, escrow lock, release, or refund must route payment intent first.
 - After routing, use only the returned `allowedTools` / command family.
 - If routing returns `needs_clarification`, ask the user before funding, paying, locking, releasing, or refunding.
-- Direct immediate internal Agent-to-Agent payments use `chief ledger transfer` only after routing returns `agent_wallet_transfer`. The transfer command accepts recipient email and amount only; it reads the sender email from the local EigenFlux profile and the ledger service resolves both emails to accounts. This path must complete a real Circle USDC transfer before the ledger records the transfer.
+- Direct immediate internal Agent-to-Agent payments use `chief ledger transfer` only after routing returns `agent_wallet_transfer`. The transfer command accepts recipient email and amount only; it reads the sender email from the local EigenFlux profile and the ledger service resolves both emails to accounts. This path uses Circle Gateway Nanopayments; the ledger records the transfer only after Gateway settlement succeeds.
 - If the user gives a recipient email plus a USDC amount and does not mention a service, task, offer, delivery, acceptance, lock, release, or refund, treat it as a direct immediate Agent-to-Agent transfer. Do not ask whether it is escrow and do not ask which wallet to use; `chief ledger transfer` uses the current agent profile as the sender.
 - For direct transfers, never infer the sender from the first account in ledger state and never ask the user to choose a source account. The sender is the current ZeroClaw/EigenFlux profile email; if the recipient email differs from that profile email, execute the `chief ledger transfer` flow. Let `chief ledger transfer` reject true self-transfers.
 - Escrow is for asynchronous A2A task settlement: create locks buyer balance, release pays seller, refund returns buyer funds.
@@ -102,7 +102,7 @@ Only after routing returns `agent_wallet_transfer`:
 chief ledger transfer '{"toEmail":"agent@example.com","amount":"0.001 U"}'
 ```
 
-This command performs the real Circle USDC transfer first. Do not pass `fromAgentId` or `toAgentId`; those identifiers are internal ledger details resolved by the service. The ledger records the transfer only after Circle succeeds.
+This command settles through Circle Gateway Nanopayments first. Do not pass `fromAgentId` or `toAgentId`; those identifiers are internal ledger details resolved by the service. The ledger records the transfer only after Gateway settlement succeeds.
 
 Do not ask "from which account?" for this flow. The local profile is the source of truth for the sender.
 
