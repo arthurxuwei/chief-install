@@ -15,6 +15,7 @@ CHIEF = ROOT / "bin" / "chief"
 
 class LedgerHandler(BaseHTTPRequestHandler):
     posted_transfers = []
+    posted_claims = []
     get_count = 0
     state_paths = []
 
@@ -70,6 +71,24 @@ class LedgerHandler(BaseHTTPRequestHandler):
             self.posted_transfers.append(body)
             self._json(200, {"ok": True, "transfer": body})
             return
+        if self.path == "/ledger/claims/link":
+            self.posted_claims.append(body)
+            self._json(
+                200,
+                {
+                    "agentId": body["agentId"],
+                    "agentName": body["agentName"],
+                    "ownerEmail": body["email"].lower(),
+                    "claimCode": "clm_testclaim",
+                    "claimUrl": "https://ledger.example.test/dashboard?claimCode=clm_testclaim&agentId="
+                    + body["agentId"],
+                    "agentUrl": "https://ledger.example.test/dashboard?agentId="
+                    + body["agentId"],
+                    "walletAddress": "0x1111111111111111111111111111111111111111",
+                    "circleWalletId": "circle-wallet-1",
+                },
+            )
+            return
         self.send_response(404)
         self.end_headers()
 
@@ -85,6 +104,7 @@ class LedgerHandler(BaseHTTPRequestHandler):
 class ChiefTransferTests(unittest.TestCase):
     def setUp(self):
         LedgerHandler.posted_transfers = []
+        LedgerHandler.posted_claims = []
         LedgerHandler.get_count = 0
         LedgerHandler.state_paths = []
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), LedgerHandler)
@@ -105,10 +125,11 @@ class ChiefTransferTests(unittest.TestCase):
             ),
             encoding="utf-8",
         )
+        self.profile_path = profile_dir / "profile.json"
         self.env = {
             **os.environ,
             "CHIEF_LEDGER_HTTP_URL": f"http://127.0.0.1:{self.server.server_port}",
-            "ZEROCLAW_WORKSPACE": str(workspace),
+            "OPENCLAW_WORKSPACE_DIR": str(workspace),
         }
 
     def tearDown(self):
@@ -147,7 +168,7 @@ class ChiefTransferTests(unittest.TestCase):
 
     def run_chief_from_workspace_without_env(self, payload):
         env = dict(self.env)
-        env.pop("ZEROCLAW_WORKSPACE", None)
+        env.pop("OPENCLAW_WORKSPACE_DIR", None)
         return subprocess.run(
             [str(CHIEF), "ledger", "transfer", json.dumps(payload)],
             cwd=self.workspace,
@@ -156,6 +177,37 @@ class ChiefTransferTests(unittest.TestCase):
             capture_output=True,
             check=False,
         )
+
+    def run_claim_link(self):
+        return subprocess.run(
+            [str(CHIEF), "claim", "link"],
+            env=self.env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+    def run_claim_link_without_python(self):
+        bin_dir = Path(self.temp_dir.name) / "bin-no-python-claim"
+        bin_dir.mkdir()
+        for command in ["sh", "cat"]:
+            source = shutil.which(command)
+            self.assertIsNotNone(source, command)
+            (bin_dir / command).symlink_to(source)
+        env = {
+            **self.env,
+            "PATH": str(bin_dir),
+        }
+        return subprocess.run(
+            [str(CHIEF), "claim", "link"],
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+    def write_profile(self, profile):
+        self.profile_path.write_text(json.dumps(profile), encoding="utf-8")
 
     def run_state_without_python(self):
         bin_dir = Path(self.temp_dir.name) / "bin-no-python-state"
@@ -249,6 +301,112 @@ class ChiefTransferTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("fromAgentId/toAgentId are internal", result.stderr)
         self.assertEqual(LedgerHandler.posted_transfers, [])
+
+    def test_claim_link_posts_openclaw_profile_and_prints_links(self):
+        result = self.run_claim_link()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            LedgerHandler.posted_claims,
+            [
+                {
+                    "agentId": "agent_sender",
+                    "agentName": "Sender",
+                    "email": "sender@example.com",
+                    "agentDescription": "",
+                }
+            ],
+        )
+        self.assertIn("Agent ID:   agent_sender", result.stdout)
+        self.assertIn("Claim Code: clm_testclaim", result.stdout)
+        self.assertIn(
+            "Claim Link: https://ledger.example.test/dashboard?claimCode=clm_testclaim&agentId=agent_sender",
+            result.stdout,
+        )
+        self.assertIn(
+            "Agent Link: https://ledger.example.test/dashboard?agentId=agent_sender",
+            result.stdout,
+        )
+
+    def test_claim_link_missing_profile_mentions_openclaw_profile_path(self):
+        self.profile_path.unlink()
+
+        result = self.run_claim_link()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("OpenClaw profile", result.stderr)
+        self.assertIn(str(self.profile_path), result.stderr)
+        self.assertEqual(LedgerHandler.posted_claims, [])
+
+    def test_claim_link_malformed_profile_mentions_openclaw_profile_path(self):
+        self.profile_path.write_text('{"agent_id": ', encoding="utf-8")
+
+        result = self.run_claim_link()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("OpenClaw profile", result.stderr)
+        self.assertIn("malformed JSON", result.stderr)
+        self.assertIn(str(self.profile_path), result.stderr)
+        self.assertEqual(LedgerHandler.posted_claims, [])
+
+    def test_claim_link_non_object_profile_mentions_malformed_profile(self):
+        self.profile_path.write_text("[]", encoding="utf-8")
+
+        result = self.run_claim_link()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("OpenClaw profile", result.stderr)
+        self.assertIn("malformed", result.stderr)
+        self.assertIn(str(self.profile_path), result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
+        self.assertEqual(LedgerHandler.posted_claims, [])
+
+    def test_claim_link_whitespace_agent_name_falls_back_to_agent_id(self):
+        self.write_profile(
+            {
+                "email": "sender@example.com",
+                "agent_id": "agent_sender",
+                "agent_name": "   ",
+            }
+        )
+
+        result = self.run_claim_link()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(LedgerHandler.posted_claims[0]["agentName"], "agent_sender")
+
+    def test_claim_link_json_encodes_profile_fields_with_quotes_and_backslashes(self):
+        self.write_profile(
+            {
+                "email": "sender@example.com",
+                "agent_id": "agent_sender",
+                "agent_name": 'Sender "Slash" \\ Agent',
+                "bio": 'Builds "quoted" paths like C:\\agents\\sender',
+            }
+        )
+
+        result = self.run_claim_link()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            LedgerHandler.posted_claims[0],
+            {
+                "agentId": "agent_sender",
+                "agentName": 'Sender "Slash" \\ Agent',
+                "email": "sender@example.com",
+                "agentDescription": 'Builds "quoted" paths like C:\\agents\\sender',
+            },
+        )
+
+    def test_claim_link_requires_python3_for_safe_profile_parsing(self):
+        result = self.run_claim_link_without_python()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "python3 is required to read the OpenClaw profile safely",
+            result.stderr,
+        )
+        self.assertEqual(LedgerHandler.posted_claims, [])
 
 
 if __name__ == "__main__":
