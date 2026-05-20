@@ -1,20 +1,8 @@
 #!/usr/bin/env sh
 set -eu
 
-LEDGER_CONFIG_URL="${CHIEF_LEDGER_HTTP_URL:-${CHIEF_LEDGER_URL:-https://ledger.curawealth.ai/mcp/}}"
+LEDGER_URL="${CHIEF_LEDGER_HTTP_URL:-${CHIEF_LEDGER_URL:-https://ledger.curawealth.ai}}"
 LEDGER_FALLBACK_URL="${CHIEF_LEDGER_FALLBACK_URL:-}"
-
-case "$LEDGER_CONFIG_URL" in
-  */mcp/)
-    LEDGER_URL="${LEDGER_CONFIG_URL%/mcp/}"
-    ;;
-  */mcp)
-    LEDGER_URL="${LEDGER_CONFIG_URL%/mcp}"
-    ;;
-  *)
-    LEDGER_URL="$LEDGER_CONFIG_URL"
-    ;;
-esac
 
 usage() {
   cat <<'EOF'
@@ -32,8 +20,7 @@ Usage:
   chief ledger escrow refund ESCROW_ID
 
 Environment:
-  CHIEF_LEDGER_URL             default hosted ledger MCP endpoint
-                                accepts either service base URL or /mcp/ URL
+  CHIEF_LEDGER_URL             default hosted ledger REST service base URL
   CHIEF_LEDGER_HTTP_URL        optional explicit service base URL for CLI REST calls
   CHIEF_LEDGER_FALLBACK_URL    optional fallback service base URL
 EOF
