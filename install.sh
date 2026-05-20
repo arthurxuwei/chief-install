@@ -3,8 +3,31 @@ set -euo pipefail
 
 CHIEF_INSTALL_BASE_URL="${CHIEF_INSTALL_BASE_URL:-https://raw.githubusercontent.com/arthurxuwei/chief-install/main}"
 ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-RUNTIME_DIR="${ZEROCLAW_RUNTIME_DIR:-$PWD/runtime}"
-BIN_DEST="$RUNTIME_DIR/workspace/.local/bin"
+
+discover_workspaces() {
+  if [[ -n "${OPENCLAW_WORKSPACE_DIR:-}" ]]; then
+    printf '%s\n' "$OPENCLAW_WORKSPACE_DIR"
+    return
+  fi
+
+  local search_dir="$PWD"
+  if [[ "$search_dir" == /private/var/* && -d "${search_dir#/private}" ]]; then
+    search_dir="${search_dir#/private}"
+  fi
+
+  local found=0
+  for workspace in "$search_dir"/runtime-openclaw-*/workspace; do
+    if [[ -d "$workspace" ]]; then
+      found=1
+      printf '%s\n' "$workspace"
+    fi
+  done
+
+  if [[ "$found" -eq 0 ]]; then
+    echo "No OpenClaw workspace found. Set OPENCLAW_WORKSPACE_DIR=/path/to/workspace." >&2
+    return 2
+  fi
+}
 
 download_file() {
   local path="$1"
@@ -38,33 +61,49 @@ install_skill_to() {
   fi
 }
 
-SKILLS_DEST="$RUNTIME_DIR/workspace/skills"
+shell_quote() {
+  printf '%q' "$1"
+}
 
-mkdir -p "$SKILLS_DEST" "$BIN_DEST"
+install_workspace() {
+  local workspace="$1"
+  local skills_dest="$workspace/skills"
+  local bin_dest="$workspace/.local/bin"
+  local quoted_workspace
+  local quoted_chief
 
-find "$SKILLS_DEST" -maxdepth 1 -type d -name 'chief-*' -exec rm -rf {} +
+  quoted_workspace="$(shell_quote "$workspace")"
+  quoted_chief="$(shell_quote "$bin_dest/chief")"
 
-# Clean up duplicate Chief installs created by older installer versions.
-for legacy_dest in \
-  "$RUNTIME_DIR/workspace/.agents/skills" \
-  "$RUNTIME_DIR/workspace/.agents/skills/skills" \
-  "$RUNTIME_DIR/workspace/.agents/chief-skills/skills"
-do
-  if [ -d "$legacy_dest" ]; then
-    find "$legacy_dest" -maxdepth 1 -type d -name 'chief-*' -exec rm -rf {} +
-  fi
-done
+  mkdir -p "$skills_dest" "$bin_dest"
+  find "$skills_dest" -maxdepth 1 -type d -name 'chief-*' -exec rm -rf {} +
 
-install_skill_to "$SKILLS_DEST" chief-ledger
-install_skill_to "$SKILLS_DEST" chief-a2a-service-trade
+  install_skill_to "$skills_dest" chief-ledger
+  install_skill_to "$skills_dest" chief-a2a-service-trade
 
-install_file "bin/chief" "$BIN_DEST/chief"
-chmod +x "$BIN_DEST/chief"
+  install_file "bin/chief" "$bin_dest/chief"
+  chmod +x "$bin_dest/chief"
 
-cat <<EOF
+  cat <<EOF
 Chief installed successfully.
 
-Runtime: $RUNTIME_DIR
-CLI:     $BIN_DEST/chief
-Skills:  $SKILLS_DEST
+OpenClaw workspace: $workspace
+CLI:                $bin_dest/chief
+Skills:             $skills_dest
 EOF
+
+  if OPENCLAW_WORKSPACE_DIR="$workspace" "$bin_dest/chief" claim link; then
+    return 0
+  fi
+
+  cat <<EOF
+Claim link unavailable for $workspace.
+Retry:
+OPENCLAW_WORKSPACE_DIR=$quoted_workspace $quoted_chief claim link
+EOF
+}
+
+workspaces="$(discover_workspaces)" || exit $?
+while IFS= read -r workspace; do
+  install_workspace "$workspace"
+done <<< "$workspaces"

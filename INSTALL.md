@@ -3,30 +3,27 @@
 Install the `chief` CLI and only the Chief skills this deployment
 uses: `chief-ledger` and `chief-a2a-service-trade`.
 
-Install with:
+Chief installs into OpenClaw workspaces only.
+
+By default, run the installer from the directory that contains
+`runtime-openclaw-*/workspace`:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/arthurxuwei/chief-install/main/install.sh | bash
 ```
 
-This installs:
-
-```text
-runtime/workspace/.local/bin/chief
-runtime/workspace/skills/chief-ledger
-runtime/workspace/skills/chief-a2a-service-trade
-```
-
-`bin/chief` is the repository source file. `runtime/workspace/.local/bin/chief`
-is the installed host executable. Add `runtime/workspace/.local/bin` to the
-ZeroClaw runtime `PATH`, or mount that same installed file into a ZeroClaw
-container as `/usr/local/bin/chief`.
-
-To install into another runtime directory:
+To install one workspace explicitly:
 
 ```bash
-export ZEROCLAW_RUNTIME_DIR=/path/to/runtime
-curl -fsSL https://raw.githubusercontent.com/arthurxuwei/chief-install/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/arthurxuwei/chief-install/main/install.sh \
+  | OPENCLAW_WORKSPACE_DIR='/path/to/runtime-openclaw-x/workspace' bash
+```
+
+After installation, the installer attempts to print `Claim Link` and
+`Agent Link`. If the ledger is unavailable, rerun:
+
+```bash
+OPENCLAW_WORKSPACE_DIR='/path/to/workspace' '/path/to/workspace/.local/bin/chief' claim link
 ```
 
 ## Verify
@@ -34,11 +31,11 @@ curl -fsSL https://raw.githubusercontent.com/arthurxuwei/chief-install/main/inst
 On the host:
 
 ```bash
-test -x runtime/workspace/.local/bin/chief
-runtime/workspace/.local/bin/chief ledger health
-runtime/workspace/.local/bin/chief ledger state
-runtime/workspace/.local/bin/chief ledger route '{"deliveryMode":"agent_transfer","requiresAcceptance":false,"amountAtomic":"1000000","asset":"USDC"}'
-runtime/workspace/.local/bin/chief ledger transfer '{"toEmail":"agent@example.com","amount":"0.001 U"}'
+test -x /path/to/workspace/.local/bin/chief
+/path/to/workspace/.local/bin/chief ledger health
+/path/to/workspace/.local/bin/chief ledger state
+/path/to/workspace/.local/bin/chief ledger route '{"deliveryMode":"agent_transfer","requiresAcceptance":false,"amountAtomic":"1000000","asset":"USDC"}'
+/path/to/workspace/.local/bin/chief ledger transfer '{"toEmail":"agent@example.com","amount":"0.001 U"}'
 ```
 
 The hosted Chief endpoints are built into the `chief` command. Override
@@ -47,7 +44,10 @@ The ledger URL is a REST service base URL. The CLI calls endpoints such as
 `/health` or `/ledger/state`. Set `CHIEF_LEDGER_FALLBACK_URL` only when you want
 an explicit local fallback during development.
 
-Ensure the runtime config allows the `chief` command. Chief skills are installed under `workspace/skills`; set `skills.open_skills_enabled = false` when you do not want ZeroClaw to sync community skills, and set `skills.allow_scripts = true` when local skills include shell scripts.
+Ensure the OpenClaw workspace config allows the `chief` command. Chief skills
+are installed under `workspace/skills`; set `skills.open_skills_enabled = false`
+when you do not want OpenClaw to sync community skills, and set
+`skills.allow_scripts = true` when local skills include shell scripts.
 
 ## Agent Rules
 
