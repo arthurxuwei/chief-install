@@ -103,3 +103,12 @@ class OpenClawInstallTests(unittest.TestCase):
         )
         self.assertNotEqual(retry_result.returncode, 0)
         self.assertNotEqual(retry_result.returncode, 127, retry_result.stderr)
+
+    def test_agent_wallet_onboarding_docs_point_to_claim_link(self):
+        skill = (ROOT / "skills" / "chief-ledger" / "SKILL.md").read_text(encoding="utf-8")
+        install = (ROOT / "INSTALL.md").read_text(encoding="utf-8")
+
+        self.assertIn("chief claim link", skill)
+        self.assertIn("chief claim link", install)
+        self.assertNotIn("chief ledger wallet get-or-create", skill)
+        self.assertNotIn("chief ledger wallet get-or-create", install)

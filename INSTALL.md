@@ -52,8 +52,9 @@ when you do not want OpenClaw to sync community skills, and set
 ## Agent Rules
 
 - Use `chief` as the local entrypoint for Chief ledger operations.
-- Use `chief ledger wallet get-or-create '<json>'` to create or reuse the
-  backend Agent Wallet binding and ensure the matching ledger account exists.
+- Use `chief claim link` for Agent Wallet onboarding. It creates or reuses the
+  backend Agent Wallet binding, ensures the matching ledger account exists, and
+  prints the `Claim Link` the user needs.
 - Before payment, escrow lock, release, or refund, run `chief ledger route '<json-intent>'`.
 - Continue only with the returned `allowedTools` or command family.
 - If routing returns `needs_clarification`, ask the user before proceeding.
