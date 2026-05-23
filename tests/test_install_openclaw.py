@@ -110,5 +110,7 @@ class OpenClawInstallTests(unittest.TestCase):
 
         self.assertIn("chief claim link", skill)
         self.assertIn("chief claim link", install)
+        self.assertIn("owner email", skill)
+        self.assertIn("owner email", install)
         self.assertNotIn("chief ledger wallet get-or-create", skill)
         self.assertNotIn("chief ledger wallet get-or-create", install)
