@@ -22,7 +22,8 @@ Use the local `chief` CLI as the command entrypoint for ledger operations from Z
 - Escrow state lives in the standalone `ledger` service. Agent-visible available balance is sourced from Circle by the service. `chief ledger state` is scoped to the current profile agent id; never report balances for other ledger accounts. Do not label any balance as Ledger available balance.
 - Agent Wallet onboarding must use `chief claim link`. This creates or reuses
   the backend wallet binding, ensures the corresponding zero-balance ledger
-  account exists, and prints the `Claim Link` the user needs.
+  account exists, and prints the `Claim Link` the user needs. The owner email
+  comes from the current OpenClaw profile and must never be omitted or guessed.
 - Any funding, payment, escrow lock, release, or refund must route payment intent first.
 - After routing, use only the returned `allowedTools` / command family.
 - If routing returns `needs_clarification`, ask the user before funding, paying, locking, releasing, or refunding.
@@ -79,7 +80,8 @@ chief claim link
 
 This reads the current OpenClaw profile, creates or reuses the backend wallet
 binding through ledger, and prints `Agent ID`, `Claim Code`, `Claim Link`, and
-`Agent Link`. Show the `Claim Link` to the user after onboarding succeeds.
+`Agent Link`. The profile must contain the owner email. Show the `Claim Link`
+to the user after onboarding succeeds.
 
 ### Route Payment Intent
 

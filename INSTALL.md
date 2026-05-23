@@ -54,7 +54,8 @@ when you do not want OpenClaw to sync community skills, and set
 - Use `chief` as the local entrypoint for Chief ledger operations.
 - Use `chief claim link` for Agent Wallet onboarding. It creates or reuses the
   backend Agent Wallet binding, ensures the matching ledger account exists, and
-  prints the `Claim Link` the user needs.
+  prints the `Claim Link` the user needs. The owner email comes from the
+  current OpenClaw profile and must not be omitted or guessed.
 - Before payment, escrow lock, release, or refund, run `chief ledger route '<json-intent>'`.
 - Continue only with the returned `allowedTools` or command family.
 - If routing returns `needs_clarification`, ask the user before proceeding.

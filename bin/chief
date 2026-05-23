@@ -335,6 +335,15 @@ print(json.dumps({
 ' "$profile" "$profile_path"
 }
 
+wallet_get_or_create_payload() {
+  email="$(json_string_field email "$1" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | tr '[:upper:]' '[:lower:]')"
+  if [ -z "$email" ]; then
+    echo "owner email is required for wallet get-or-create" >&2
+    return 2
+  fi
+  printf '%s\n' "$1"
+}
+
 case "${1:-}" in
   claim)
     case "${2:-}" in
@@ -378,8 +387,9 @@ print("Agent Link: {}".format(payload.get("agentUrl", "")))
       wallet)
         case "${3:-}" in
           get-or-create)
-            [ $# -ge 4 ] || { echo "usage: chief ledger wallet get-or-create '<json>'" >&2; exit 2; }
-            post_json "$LEDGER_URL/ledger/wallets/get-or-create" "${LEDGER_FALLBACK_URL:+$LEDGER_FALLBACK_URL/ledger/wallets/get-or-create}" "$4"
+            [ $# -ge 4 ] || { echo "usage: chief ledger wallet get-or-create '{\"agentId\":\"...\",\"agentName\":\"...\",\"email\":\"owner@example.com\"}'" >&2; exit 2; }
+            wallet_body="$(wallet_get_or_create_payload "$4")" || exit 2
+            post_json "$LEDGER_URL/ledger/wallets/get-or-create" "${LEDGER_FALLBACK_URL:+$LEDGER_FALLBACK_URL/ledger/wallets/get-or-create}" "$wallet_body"
             ;;
           *)
             usage

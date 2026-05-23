@@ -16,6 +16,7 @@ CHIEF = ROOT / "bin" / "chief"
 class LedgerHandler(BaseHTTPRequestHandler):
     posted_transfers = []
     posted_claims = []
+    posted_wallets = []
     get_count = 0
     state_paths = []
 
@@ -89,6 +90,10 @@ class LedgerHandler(BaseHTTPRequestHandler):
                 },
             )
             return
+        if self.path == "/ledger/wallets/get-or-create":
+            self.posted_wallets.append(body)
+            self._json(200, {"ok": True, "account": body})
+            return
         self.send_response(404)
         self.end_headers()
 
@@ -105,6 +110,7 @@ class ChiefTransferTests(unittest.TestCase):
     def setUp(self):
         LedgerHandler.posted_transfers = []
         LedgerHandler.posted_claims = []
+        LedgerHandler.posted_wallets = []
         LedgerHandler.get_count = 0
         LedgerHandler.state_paths = []
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), LedgerHandler)
@@ -182,6 +188,34 @@ class ChiefTransferTests(unittest.TestCase):
         return subprocess.run(
             [str(CHIEF), "claim", "link"],
             env=self.env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+    def run_wallet_get_or_create(self, payload):
+        return subprocess.run(
+            [str(CHIEF), "ledger", "wallet", "get-or-create", json.dumps(payload)],
+            env=self.env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+    def run_wallet_get_or_create_without_python(self, payload):
+        bin_dir = Path(self.temp_dir.name) / "bin-no-python-wallet"
+        bin_dir.mkdir()
+        for command in ["env", "sh", "cat", "curl", "grep", "sed", "head", "tr"]:
+            source = shutil.which(command)
+            self.assertIsNotNone(source, command)
+            (bin_dir / command).symlink_to(source)
+        env = {
+            **self.env,
+            "PATH": str(bin_dir),
+        }
+        return subprocess.run(
+            [str(CHIEF), "ledger", "wallet", "get-or-create", json.dumps(payload)],
+            env=env,
             text=True,
             capture_output=True,
             check=False,
@@ -407,6 +441,33 @@ class ChiefTransferTests(unittest.TestCase):
             result.stderr,
         )
         self.assertEqual(LedgerHandler.posted_claims, [])
+
+    def test_wallet_get_or_create_requires_owner_email_before_posting(self):
+        result = self.run_wallet_get_or_create(
+            {
+                "agentId": "x",
+                "agentName": "X",
+                "email": "   ",
+            }
+        )
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("owner email is required", result.stderr)
+        self.assertEqual(LedgerHandler.posted_wallets, [])
+
+    def test_wallet_get_or_create_email_check_does_not_require_python(self):
+        result = self.run_wallet_get_or_create_without_python(
+            {
+                "agentId": "x",
+                "agentName": "X",
+                "email": "   ",
+            }
+        )
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("owner email is required", result.stderr)
+        self.assertNotIn("python3 is required", result.stderr)
+        self.assertEqual(LedgerHandler.posted_wallets, [])
 
 
 if __name__ == "__main__":
