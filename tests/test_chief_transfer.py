@@ -202,6 +202,25 @@ class ChiefTransferTests(unittest.TestCase):
             check=False,
         )
 
+    def run_wallet_get_or_create_without_python(self, payload):
+        bin_dir = Path(self.temp_dir.name) / "bin-no-python-wallet"
+        bin_dir.mkdir()
+        for command in ["env", "sh", "cat", "curl", "grep", "sed", "head", "tr"]:
+            source = shutil.which(command)
+            self.assertIsNotNone(source, command)
+            (bin_dir / command).symlink_to(source)
+        env = {
+            **self.env,
+            "PATH": str(bin_dir),
+        }
+        return subprocess.run(
+            [str(CHIEF), "ledger", "wallet", "get-or-create", json.dumps(payload)],
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
     def run_claim_link_without_python(self):
         bin_dir = Path(self.temp_dir.name) / "bin-no-python-claim"
         bin_dir.mkdir()
@@ -434,6 +453,20 @@ class ChiefTransferTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 2)
         self.assertIn("owner email is required", result.stderr)
+        self.assertEqual(LedgerHandler.posted_wallets, [])
+
+    def test_wallet_get_or_create_email_check_does_not_require_python(self):
+        result = self.run_wallet_get_or_create_without_python(
+            {
+                "agentId": "x",
+                "agentName": "X",
+                "email": "   ",
+            }
+        )
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("owner email is required", result.stderr)
+        self.assertNotIn("python3 is required", result.stderr)
         self.assertEqual(LedgerHandler.posted_wallets, [])
 
 
