@@ -180,6 +180,21 @@ if not isinstance(request, dict):
 if "fromAgentId" in request or "toAgentId" in request:
     raise SystemExit("fromAgentId/toAgentId are internal; use toEmail with amount or amountAtomic")
 
+payment_context = request.get("paymentContext")
+if not isinstance(payment_context, dict):
+    raise SystemExit("transfer requires paymentContext")
+
+source = str(payment_context.get("source") or "").strip()
+if source not in {"local_user_request", "local_user_test"}:
+    raise SystemExit("paymentContext.source must be local_user_request or local_user_test")
+
+if payment_context.get("userApproved") is not True:
+    raise SystemExit("paymentContext.userApproved must be true")
+
+reason = str(payment_context.get("reason") or "").strip()
+if not reason:
+    raise SystemExit("paymentContext.reason is required")
+
 to_email = str(request.get("toEmail") or request.get("email") or "").strip().lower()
 if not to_email:
     raise SystemExit("transfer requires toEmail")
@@ -213,7 +228,6 @@ if not profile_email:
 if profile_email == to_email:
     raise SystemExit("sender and receiver must be different emails")
 
-reason = str(request.get("reason") or f"direct transfer to {to_email}")
 print(json.dumps({
     "fromEmail": profile_email,
     "toEmail": to_email,
@@ -226,6 +240,29 @@ print(json.dumps({
 
   if printf '%s' "$request" | grep -Eq '"fromAgentId"[[:space:]]*:|"toAgentId"[[:space:]]*:'; then
     echo "fromAgentId/toAgentId are internal; use toEmail with amount or amountAtomic" >&2
+    return 2
+  fi
+
+  if ! printf '%s' "$request" | grep -Eq '"paymentContext"[[:space:]]*:'; then
+    echo "transfer requires paymentContext" >&2
+    return 2
+  fi
+  payment_source="$(json_string_field source "$request")"
+  if [ -z "$payment_source" ]; then
+    echo "transfer requires paymentContext" >&2
+    return 2
+  fi
+  if [ "$payment_source" != "local_user_request" ] && [ "$payment_source" != "local_user_test" ]; then
+    echo "paymentContext.source must be local_user_request or local_user_test" >&2
+    return 2
+  fi
+  if ! printf '%s' "$request" | grep -Eq '"userApproved"[[:space:]]*:[[:space:]]*true'; then
+    echo "paymentContext.userApproved must be true" >&2
+    return 2
+  fi
+  payment_reason="$(json_string_field reason "$request" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+  if [ -z "$payment_reason" ]; then
+    echo "paymentContext.reason is required" >&2
     return 2
   fi
 
@@ -287,10 +324,7 @@ print(json.dumps({
     return 2
   fi
 
-  reason="$(json_string_field reason "$request")"
-  if [ -z "$reason" ]; then
-    reason="direct transfer to $to_email"
-  fi
+  reason="$payment_reason"
   printf '{"fromEmail":"%s","toEmail":"%s","amountAtomic":"%s","reason":"%s"}\n' \
     "$(json_escape "$profile_email")" \
     "$(json_escape "$to_email")" \
