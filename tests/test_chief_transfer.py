@@ -25,42 +25,36 @@ class LedgerHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         self.get_count += 1
-        if self.path.startswith("/ledger/state"):
+        if self.path == "/ledger/accounts/agent_sender":
             self.state_paths.append(self.path)
-            if "agentId=agent_sender" in self.path:
-                accounts = [
-                    {
-                        "agentId": "agent_sender",
-                        "email": "sender@example.com",
-                        "availableAtomic": "940000",
-                        "lockedAtomic": "0",
-                        "circleUsdcBalance": "0.94",
-                    }
-                ]
-            else:
-                accounts = [
-                    {
-                        "agentId": "agent_sender",
-                        "email": "sender@example.com",
-                        "availableAtomic": "940000",
-                        "lockedAtomic": "0",
-                        "circleUsdcBalance": "0.94",
-                    },
-                    {
-                        "agentId": "agent_other",
-                        "email": "other@example.com",
-                        "availableAtomic": "100000",
-                        "lockedAtomic": "0",
-                        "circleUsdcBalance": "0.10",
-                    },
-                ]
             self._json(
                 200,
                 {
-                    "accounts": accounts,
-                    "escrows": [],
+                    "account": {
+                        "agentId": "agent_sender",
+                        "email": "sender@example.com",
+                        "availableAtomic": "940000",
+                        "lockedAtomic": "0",
+                        "circleUsdcBalance": "0.94",
+                    },
                 },
             )
+            return
+        if self.path == "/ledger/accounts/agent_sender/entries?limit=500":
+            self.state_paths.append(self.path)
+            self._json(200, {"entries": []})
+            return
+        if self.path == "/ledger/accounts/agent_sender/escrows":
+            self.state_paths.append(self.path)
+            self._json(200, {"escrows": []})
+            return
+        if self.path == "/ledger/onramp-sessions?agentId=agent_sender&limit=500":
+            self.state_paths.append(self.path)
+            self._json(200, {"onrampSessions": []})
+            return
+        if self.path.startswith("/ledger/state"):
+            self.state_paths.append(self.path)
+            self._json(404, {"detail": "Not Found"})
             return
         self.send_response(404)
         self.end_headers()
@@ -286,7 +280,10 @@ class ChiefTransferTests(unittest.TestCase):
         result = self.run_state_without_python()
 
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("/ledger/state?agentId=agent_sender", LedgerHandler.state_paths)
+        self.assertIn("/ledger/accounts/agent_sender", LedgerHandler.state_paths)
+        self.assertIn("/ledger/accounts/agent_sender/entries?limit=500", LedgerHandler.state_paths)
+        self.assertIn("/ledger/accounts/agent_sender/escrows", LedgerHandler.state_paths)
+        self.assertIn("/ledger/onramp-sessions?agentId=agent_sender&limit=500", LedgerHandler.state_paths)
         self.assertNotIn("other@example.com", result.stdout)
 
     def test_transfer_accepts_email_and_amount_only(self):

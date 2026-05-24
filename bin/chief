@@ -90,7 +90,7 @@ claim_profile_json() {
   cat "$profile_path"
 }
 
-ledger_state_path_for_profile() {
+ledger_profile_agent_id() {
   profile="$(agent_profile_json)"
   profile_agent_id="$(json_string_field agent_id "$profile")"
   if [ -z "$profile_agent_id" ]; then
@@ -100,7 +100,39 @@ ledger_state_path_for_profile() {
     echo "current OpenClaw profile is missing agent_id" >&2
     return 2
   fi
-  printf '/ledger/state?agentId=%s\n' "$(url_encode_query_value "$profile_agent_id")"
+  printf '%s\n' "$profile_agent_id"
+}
+
+json_top_level_payload() {
+  key="$1"
+  body="$2"
+  printf '%s' "$body" | tr -d '\n' | sed -n "s/^[[:space:]]*{[[:space:]]*\"$key\"[[:space:]]*:[[:space:]]*\\(.*\\)[[:space:]]*}[[:space:]]*$/\\1/p" | head -n 1
+}
+
+ledger_state_payload_for_profile() {
+  profile_agent_id="$(ledger_profile_agent_id)" || return 2
+  encoded_agent_id="$(url_encode_query_value "$profile_agent_id")"
+
+  account_response="$(get_url "$LEDGER_URL" "$LEDGER_FALLBACK_URL" "/ledger/accounts/$encoded_agent_id")" || return 2
+  entries_response="$(get_url "$LEDGER_URL" "$LEDGER_FALLBACK_URL" "/ledger/accounts/$encoded_agent_id/entries?limit=500")" || return 2
+  escrows_response="$(get_url "$LEDGER_URL" "$LEDGER_FALLBACK_URL" "/ledger/accounts/$encoded_agent_id/escrows")" || return 2
+  onramp_sessions_response="$(get_url "$LEDGER_URL" "$LEDGER_FALLBACK_URL" "/ledger/onramp-sessions?agentId=$encoded_agent_id&limit=500")" || return 2
+
+  account_payload="$(json_top_level_payload account "$account_response")"
+  entries_payload="$(json_top_level_payload entries "$entries_response")"
+  escrows_payload="$(json_top_level_payload escrows "$escrows_response")"
+  onramp_sessions_payload="$(json_top_level_payload onrampSessions "$onramp_sessions_response")"
+
+  if [ -z "$account_payload" ] || [ -z "$entries_payload" ] || [ -z "$escrows_payload" ] || [ -z "$onramp_sessions_payload" ]; then
+    echo "ledger state response is missing expected domain fields" >&2
+    return 2
+  fi
+
+  printf '{"accounts":[%s],"entries":%s,"escrows":%s,"onrampSessions":%s,"onrampEvents":[],"circleWebhookEvents":[],"chainRecords":[],"settlementRecords":[]}\n' \
+    "$account_payload" \
+    "$entries_payload" \
+    "$escrows_payload" \
+    "$onramp_sessions_payload"
 }
 
 post_json() {
@@ -411,8 +443,7 @@ print("Agent Link: {}".format(payload.get("agentUrl", "")))
         get_url "$LEDGER_URL" "$LEDGER_FALLBACK_URL" "/health"
         ;;
       state)
-        state_path="$(ledger_state_path_for_profile)" || exit 2
-        get_url "$LEDGER_URL" "$LEDGER_FALLBACK_URL" "$state_path" | sanitize_ledger_state
+        ledger_state_payload_for_profile | sanitize_ledger_state
         ;;
       route)
         [ $# -ge 3 ] || { echo "usage: chief ledger route '<json-intent>'" >&2; exit 2; }

@@ -38,11 +38,10 @@ test -x /path/to/workspace/.local/bin/chief
 /path/to/workspace/.local/bin/chief ledger transfer '{"toEmail":"agent@example.com","amount":"0.001 U","paymentContext":{"source":"local_user_test","userApproved":true,"reason":"Local user asked this agent to run an online transfer test"}}'
 ```
 
-The hosted Chief endpoints are built into the `chief` command. Override
-`CHIEF_LEDGER_URL` only when pointing the same install kit at another deployment.
-The ledger URL is a REST service base URL. The CLI calls endpoints such as
-`/health` or `/ledger/state`. Set `CHIEF_LEDGER_FALLBACK_URL` only when you want
-an explicit local fallback during development.
+The hosted Chief service defaults are built into the `chief` command. Override
+them only under operator guidance or when pointing this install kit at another
+deployment. The install docs intentionally avoid service path details; agents
+should use the `chief` commands instead of constructing backend calls.
 
 Ensure the OpenClaw workspace config allows the `chief` command. Chief skills
 are installed under `workspace/skills`; set `skills.open_skills_enabled = false`

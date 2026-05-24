@@ -53,7 +53,7 @@ Rejected source values include, but are not limited to:
 - `public_feed_request`
 - empty or missing source
 
-The CLI should also reject `paymentContext.reason` values that are empty or whitespace-only. The reason is forwarded to `/ledger/transfers` as the ledger entry reason. The full `paymentContext` stays local to the installed CLI and is not sent to the ledger API.
+The CLI should also reject `paymentContext.reason` values that are empty or whitespace-only. The reason is forwarded as the ledger entry reason. The full `paymentContext` stays local to the installed CLI and is not sent to the hosted service.
 
 ## CLI Behavior
 
@@ -134,7 +134,7 @@ These messages are intended for agents to understand why the payment was blocked
 
 ## Security Notes
 
-This phase protects the installed agent runtime from social-engineered direct-transfer behavior. It is not a complete server-side authorization model. A caller that bypasses the installed CLI and directly calls the hosted ledger API could still attempt API-level actions. Server-side identity enforcement should be designed separately if the hosted ledger endpoint is exposed to untrusted callers.
+This phase protects the installed agent runtime from social-engineered direct-transfer behavior. It is not a complete server-side authorization model. A caller that bypasses the installed CLI and directly calls the hosted service could still attempt service-level actions. Server-side identity enforcement should be designed separately for untrusted callers.
 
 ## Acceptance Criteria
 

@@ -4,7 +4,7 @@
 
 **Goal:** Require explicit local-user payment context before an installed Chief agent can execute direct Agent Wallet transfer.
 
-**Architecture:** Keep sender derivation in `bin/chief` exactly as today, but add local CLI validation for `paymentContext` before building the `/ledger/transfers` payload. Update installed skills so agents classify unsolicited external money requests as high risk and only construct allowed transfer payloads for local-user-approved payment or test scenarios.
+**Architecture:** Keep sender derivation in `bin/chief` exactly as today, but add local CLI validation for `paymentContext` before building the direct-transfer payload. Update installed skills so agents classify unsolicited external money requests as high risk and only construct allowed transfer payloads for local-user-approved payment or test scenarios.
 
 **Tech Stack:** POSIX shell CLI, small embedded Python validation path with existing no-Python fallback, Markdown skill docs, Python `unittest`.
 

@@ -14,5 +14,5 @@ needs:
 
 See [INSTALL.md](INSTALL.md) for installation.
 
-Hosted endpoint defaults live in `bin/chief`; override them with `CHIEF_*`
+Hosted service defaults live in `bin/chief`; override them with `CHIEF_*`
 environment variables only when using another deployment.

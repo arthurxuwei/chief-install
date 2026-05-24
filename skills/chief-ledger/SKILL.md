@@ -69,7 +69,9 @@ chief ledger health
 chief ledger state
 ```
 
-This command reads the local EigenFlux profile and requests ledger state with `agentId=<current agent id>`. If no agent id is available, state must not be treated as global account data.
+This command reads the local OpenClaw profile and returns the ledger view scoped
+to the current agent. If no agent id is available, state must not be treated as
+global account data.
 
 ### Agent Wallet Onboarding
 
