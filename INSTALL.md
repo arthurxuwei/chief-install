@@ -32,6 +32,7 @@ On the host:
 
 ```bash
 test -x /path/to/workspace/.local/bin/chief
+/path/to/workspace/.local/bin/chief version
 /path/to/workspace/.local/bin/chief ledger health
 /path/to/workspace/.local/bin/chief ledger state
 /path/to/workspace/.local/bin/chief ledger route '{"deliveryMode":"agent_transfer","requiresAcceptance":false,"amountAtomic":"1000000","asset":"USDC"}'

@@ -234,6 +234,15 @@ class ChiefTransferTests(unittest.TestCase):
             check=False,
         )
 
+    def run_version(self, *args):
+        return subprocess.run(
+            [str(CHIEF), *args],
+            env=self.env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
     def write_profile(self, profile):
         self.profile_path.write_text(json.dumps(profile), encoding="utf-8")
 
@@ -285,6 +294,15 @@ class ChiefTransferTests(unittest.TestCase):
         self.assertIn("/ledger/accounts/agent_sender/escrows", LedgerHandler.state_paths)
         self.assertIn("/ledger/onramp-sessions?agentId=agent_sender&limit=500", LedgerHandler.state_paths)
         self.assertNotIn("other@example.com", result.stdout)
+
+    def test_version_commands_print_cli_version(self):
+        for args in [("version",), ("--version",)]:
+            with self.subTest(args=args):
+                result = self.run_version(*args)
+
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertRegex(result.stdout.strip(), r"^chief [0-9]{4}\.[0-9]{2}\.[0-9]{2}\.[0-9]+$")
+                self.assertEqual(result.stderr, "")
 
     def test_transfer_accepts_email_and_amount_only(self):
         result = self.run_chief(

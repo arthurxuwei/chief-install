@@ -1,6 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
+CHIEF_CLI_VERSION="2026.05.25.1"
 LEDGER_URL="${CHIEF_LEDGER_HTTP_URL:-${CHIEF_LEDGER_URL:-https://ledger.curawealth.ai}}"
 LEDGER_FALLBACK_URL="${CHIEF_LEDGER_FALLBACK_URL:-}"
 
@@ -9,6 +10,7 @@ usage() {
 Chief CLI for ZeroClaw
 
 Usage:
+  chief version
   chief ledger health
   chief ledger state
   chief ledger route '<json-intent>'
@@ -411,6 +413,9 @@ wallet_get_or_create_payload() {
 }
 
 case "${1:-}" in
+  version|--version)
+    printf 'chief %s\n' "$CHIEF_CLI_VERSION"
+    ;;
   claim)
     case "${2:-}" in
       link)
