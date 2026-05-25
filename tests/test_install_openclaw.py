@@ -11,6 +11,17 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = Path(__file__).resolve().parents[1]
 INSTALL = ROOT / "install.sh"
+CHIEF = ROOT / "bin" / "chief"
+
+
+def setUpModule():
+    subprocess.run(
+        [str(ROOT / "scripts" / "build-chief.sh"), str(CHIEF)],
+        cwd=ROOT,
+        check=True,
+    )
+    if not CHIEF.is_file() or not os.access(CHIEF, os.X_OK):
+        raise AssertionError(f"local chief test binary is not executable: {CHIEF}")
 
 
 class ClaimLedgerHandler(BaseHTTPRequestHandler):
