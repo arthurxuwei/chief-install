@@ -109,13 +109,16 @@ func buildTransferRequest(data []byte, profile Profile) (transferRequest, error)
 }
 
 func transferAmountAtomic(payload transferInput) (string, error) {
-	raw := payload.Amount
-	if len(raw) == 0 {
-		raw = payload.AmountAtomic
+	if len(payload.Amount) != 0 {
+		return parseTransferAmountValue(payload.Amount)
 	}
-	if len(raw) == 0 {
-		return "", fmt.Errorf("amount is required")
+	if len(payload.AmountAtomic) != 0 {
+		return parseAtomicAmountValue(payload.AmountAtomic)
 	}
+	return "", fmt.Errorf("amount is required")
+}
+
+func parseTransferAmountValue(raw json.RawMessage) (string, error) {
 	var value any
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.UseNumber()
@@ -132,9 +135,42 @@ func transferAmountAtomic(payload transferInput) (string, error) {
 	}
 }
 
+func parseAtomicAmountValue(raw json.RawMessage) (string, error) {
+	var value any
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	if err := decoder.Decode(&value); err != nil {
+		return "", fmt.Errorf("invalid amountAtomic")
+	}
+	switch v := value.(type) {
+	case string:
+		return parsePositiveAtomicAmount(v, "amountAtomic")
+	case json.Number:
+		return parsePositiveAtomicAmount(v.String(), "amountAtomic")
+	default:
+		return "", fmt.Errorf("amountAtomic must be a positive integer")
+	}
+}
+
+func parsePositiveAtomicAmount(raw string, field string) (string, error) {
+	value := strings.TrimSpace(raw)
+	if strings.HasPrefix(value, "-") {
+		return "", fmt.Errorf("%s must be a positive integer", field)
+	}
+	if !allDigits(value) {
+		return "", fmt.Errorf("%s must be a positive integer", field)
+	}
+	amount := new(big.Int)
+	amount.SetString(value, 10)
+	if amount.Sign() <= 0 {
+		return "", fmt.Errorf("%s must be a positive integer", field)
+	}
+	return amount.String(), nil
+}
+
 func validateTransferPaymentContext(raw json.RawMessage) (transferPaymentContext, error) {
 	if len(raw) == 0 {
-		return transferPaymentContext{}, fmt.Errorf("paymentContext is required")
+		return transferPaymentContext{}, fmt.Errorf("transfer requires paymentContext")
 	}
 	var object map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &object); err != nil || object == nil {
@@ -142,7 +178,7 @@ func validateTransferPaymentContext(raw json.RawMessage) (transferPaymentContext
 	}
 	approved, ok := object["userApproved"]
 	if !ok || string(bytes.TrimSpace(approved)) != "true" {
-		return transferPaymentContext{}, fmt.Errorf("paymentContext.userApproved must be JSON boolean true")
+		return transferPaymentContext{}, fmt.Errorf("paymentContext.userApproved must be true")
 	}
 
 	var context transferPaymentContext
@@ -230,15 +266,27 @@ func parseUSDCAmount(value string, unit string) (string, error) {
 }
 
 func splitAmountAndUnit(raw string) (string, string, bool) {
-	fields := strings.Fields(strings.TrimSpace(raw))
+	trimmed := strings.TrimSpace(raw)
+	fields := strings.Fields(trimmed)
 	switch len(fields) {
 	case 1:
-		return fields[0], "", true
+		value, unit := splitAttachedAmountUnit(fields[0])
+		return value, unit, true
 	case 2:
 		return fields[0], strings.ToUpper(fields[1]), true
 	default:
 		return "", "", false
 	}
+}
+
+func splitAttachedAmountUnit(raw string) (string, string) {
+	upper := strings.ToUpper(raw)
+	for _, unit := range []string{"USDC", "U"} {
+		if strings.HasSuffix(upper, unit) {
+			return raw[:len(raw)-len(unit)], unit
+		}
+	}
+	return raw, ""
 }
 
 func normalizeEmail(email string) string {

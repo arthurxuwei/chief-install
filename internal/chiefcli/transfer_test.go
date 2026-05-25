@@ -3,11 +3,11 @@ package chiefcli
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -30,7 +30,7 @@ func TestLedgerTransferPostsValidatedPayload(t *testing.T) {
 	}))
 	defer server.Close()
 
-	payload := `{"toEmail":" receiver@example.com ","amount":"1.5 USDC","paymentContext":{"source":"local_user_request","userApproved":true,"reason":" thanks "}}`
+	payload := `{"fromEmail":"spoof@example.com","toEmail":" receiver@example.com ","amount":"1.5 USDC","reason":"spoofed reason","paymentContext":{"source":"local_user_request","userApproved":true,"reason":" thanks "}}`
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	exitCode := Run([]string{"ledger", "transfer", payload}, &stdout, &stderr, EnvMap{
@@ -50,8 +50,11 @@ func TestLedgerTransferPostsValidatedPayload(t *testing.T) {
 		"amountAtomic": "1500000",
 		"reason":       "thanks",
 	}
-	if fmt.Sprint(posted) != fmt.Sprint(want) {
+	if !reflect.DeepEqual(posted, want) {
 		t.Fatalf("posted = %#v, want %#v", posted, want)
+	}
+	if len(posted) != 4 {
+		t.Fatalf("posted body should contain only four fields: %#v", posted)
 	}
 }
 
@@ -101,7 +104,7 @@ func TestLedgerTransferValidationErrors(t *testing.T) {
 		{
 			name:       "requires payment context object",
 			payload:    `{"toEmail":"receiver@example.com","amount":"1000"}`,
-			wantStderr: "paymentContext is required",
+			wantStderr: "transfer requires paymentContext",
 		},
 		{
 			name:       "rejects payment context non object",
@@ -116,7 +119,12 @@ func TestLedgerTransferValidationErrors(t *testing.T) {
 		{
 			name:       "requires boolean user approved",
 			payload:    `{"toEmail":"receiver@example.com","amount":"1000","paymentContext":{"source":"local_user_test","userApproved":"true","reason":"test"}}`,
-			wantStderr: "paymentContext.userApproved must be JSON boolean true",
+			wantStderr: "paymentContext.userApproved must be true",
+		},
+		{
+			name:       "rejects false user approved",
+			payload:    `{"toEmail":"receiver@example.com","amount":"1000","paymentContext":{"source":"local_user_test","userApproved":false,"reason":"test"}}`,
+			wantStderr: "paymentContext.userApproved must be true",
 		},
 		{
 			name:       "requires reason",
@@ -166,7 +174,9 @@ func TestLedgerTransferAmountParsing(t *testing.T) {
 		{input: `{"toEmail":"receiver@example.com","amount":"1000","paymentContext":{"source":"local_user_test","userApproved":true,"reason":"test"}}`, want: "1000"},
 		{input: `{"toEmail":"receiver@example.com","amountAtomic":"2500","paymentContext":{"source":"local_user_test","userApproved":true,"reason":"test"}}`, want: "2500"},
 		{input: `{"toEmail":"receiver@example.com","amount":"0.001 U","paymentContext":{"source":"local_user_test","userApproved":true,"reason":"test"}}`, want: "1000"},
+		{input: `{"toEmail":"receiver@example.com","amount":"0.001U","paymentContext":{"source":"local_user_test","userApproved":true,"reason":"test"}}`, want: "1000"},
 		{input: `{"toEmail":"receiver@example.com","amount":"1.5 USDC","paymentContext":{"source":"local_user_test","userApproved":true,"reason":"test"}}`, want: "1500000"},
+		{input: `{"toEmail":"receiver@example.com","amount":"1.5USDC","paymentContext":{"source":"local_user_test","userApproved":true,"reason":"test"}}`, want: "1500000"},
 	}
 
 	for _, tt := range tests {
@@ -179,6 +189,24 @@ func TestLedgerTransferAmountParsing(t *testing.T) {
 				t.Fatalf("amountAtomic = %q, want %q", req.AmountAtomic, tt.want)
 			}
 		})
+	}
+}
+
+func TestLedgerTransferRejectsDecimalAmountAtomic(t *testing.T) {
+	req, err := buildTransferRequest([]byte(`{"toEmail":"receiver@example.com","amount":"1.5USDC","paymentContext":{"source":"local_user_test","userApproved":true,"reason":"test"}}`), Profile{Email: "sender@example.com"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.AmountAtomic != "1500000" {
+		t.Fatalf("amountAtomic = %q", req.AmountAtomic)
+	}
+
+	_, err = buildTransferRequest([]byte(`{"toEmail":"receiver@example.com","amountAtomic":"1.5USDC","paymentContext":{"source":"local_user_test","userApproved":true,"reason":"test"}}`), Profile{Email: "sender@example.com"})
+	if err == nil {
+		t.Fatal("decimal amountAtomic was accepted")
+	}
+	if !strings.Contains(err.Error(), "amountAtomic must be a positive integer") {
+		t.Fatalf("err = %v", err)
 	}
 }
 
