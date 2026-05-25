@@ -2,6 +2,7 @@
 set -euo pipefail
 
 CHIEF_INSTALL_BASE_URL="${CHIEF_INSTALL_BASE_URL:-https://raw.githubusercontent.com/arthurxuwei/chief-install/main}"
+CHIEF_INSTALL_BIN_BASE_URL="${CHIEF_INSTALL_BIN_BASE_URL:-https://github.com/arthurxuwei/chief-install/releases/latest/download}"
 ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 discover_workspaces() {
@@ -33,6 +34,12 @@ download_file() {
   local path="$1"
   local dest="$2"
   curl -fsSL "$CHIEF_INSTALL_BASE_URL/$path" -o "$dest"
+}
+
+download_chief_binary() {
+  local asset="$1"
+  local dest="$2"
+  curl -fsSL "$CHIEF_INSTALL_BIN_BASE_URL/$asset" -o "$dest"
 }
 
 install_file() {
@@ -90,7 +97,7 @@ install_chief_binary() {
   elif [[ -f "$ROOT_DIR/dist/$asset" ]]; then
     cp "$ROOT_DIR/dist/$asset" "$dest"
   else
-    download_file "dist/$asset" "$dest"
+    download_chief_binary "$asset" "$dest"
   fi
   chmod +x "$dest"
 }

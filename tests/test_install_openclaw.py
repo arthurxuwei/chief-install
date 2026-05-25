@@ -80,6 +80,27 @@ class ClaimLedgerHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
 
+class BinaryAssetHandler(BaseHTTPRequestHandler):
+    asset_name = ""
+    asset_bytes = b""
+    requested_paths = []
+
+    def log_message(self, format, *args):
+        return
+
+    def do_GET(self):
+        self.__class__.requested_paths.append(self.path)
+        if self.path != f"/{self.__class__.asset_name}":
+            self.send_response(404)
+            self.end_headers()
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "application/octet-stream")
+        self.send_header("Content-Length", str(len(self.__class__.asset_bytes)))
+        self.end_headers()
+        self.wfile.write(self.__class__.asset_bytes)
+
+
 class OpenClawInstallTests(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -99,6 +120,20 @@ class OpenClawInstallTests(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
+    def hide_local_dist_asset(self, asset_name):
+        dist_asset = ROOT / "dist" / asset_name
+        if not dist_asset.exists():
+            return
+
+        backup = self.root / f"{asset_name}.backup"
+        dist_asset.replace(backup)
+
+        def restore():
+            dist_asset.parent.mkdir(exist_ok=True)
+            backup.replace(dist_asset)
+
+        self.addCleanup(restore)
+
     def run_install(self, extra_env=None):
         env = {
             **os.environ,
@@ -106,7 +141,11 @@ class OpenClawInstallTests(unittest.TestCase):
             "CHIEF_LEDGER_HTTP_URL": "http://127.0.0.1:9",
         }
         if extra_env:
-            env.update(extra_env)
+            for key, value in extra_env.items():
+                if value is None:
+                    env.pop(key, None)
+                else:
+                    env[key] = value
         return subprocess.run(
             [str(INSTALL)],
             cwd=self.root,
@@ -210,6 +249,94 @@ class OpenClawInstallTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 2)
         self.assertIn("Unsupported platform: Plan9/riscv64", result.stderr)
+
+    def test_downloads_binary_asset_from_binary_base_url(self):
+        asset_name = "chief_linux_amd64"
+        self.hide_local_dist_asset(asset_name)
+        BinaryAssetHandler.asset_name = asset_name
+        BinaryAssetHandler.asset_bytes = CHIEF_ASSET.read_bytes()
+        BinaryAssetHandler.requested_paths = []
+        server = ThreadingHTTPServer(("127.0.0.1", 0), BinaryAssetHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(lambda: thread.join(timeout=5))
+        self.addCleanup(server.shutdown)
+
+        bin_dir = self.root / "fake-bin"
+        bin_dir.mkdir()
+        uname = bin_dir / "uname"
+        uname.write_text(
+            "#!/usr/bin/env sh\n"
+            "case \"$1\" in\n"
+            "  -s) echo Linux ;;\n"
+            "  -m) echo x86_64 ;;\n"
+            "esac\n",
+            encoding="utf-8",
+        )
+        uname.chmod(0o755)
+        target = self.root / "runtime-openclaw-x" / "workspace"
+
+        result = self.run_install(
+            {
+                "OPENCLAW_WORKSPACE_DIR": str(target),
+                "CHIEF_INSTALL_BIN_DIR": None,
+                "CHIEF_INSTALL_BASE_URL": "http://127.0.0.1:9/not-used",
+                "CHIEF_INSTALL_BIN_BASE_URL": f"http://127.0.0.1:{server.server_port}",
+                "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
+            }
+        )
+
+        chief = target / ".local" / "bin" / "chief"
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(BinaryAssetHandler.requested_paths, [f"/{asset_name}"])
+        self.assertEqual(chief.read_bytes(), CHIEF_ASSET.read_bytes())
+
+    def test_installs_binary_asset_from_local_dist_before_download(self):
+        asset_name = "chief_linux_arm64"
+        dist_asset = ROOT / "dist" / asset_name
+        dist_asset.parent.mkdir(exist_ok=True)
+        had_original = dist_asset.exists()
+        original_bytes = dist_asset.read_bytes() if had_original else None
+        original_mode = dist_asset.stat().st_mode if had_original else None
+        dist_asset.write_bytes(CHIEF_ASSET.read_bytes())
+        dist_asset.chmod(0o755)
+
+        def restore_dist_asset():
+            if had_original:
+                dist_asset.write_bytes(original_bytes)
+                dist_asset.chmod(original_mode)
+            else:
+                dist_asset.unlink(missing_ok=True)
+
+        self.addCleanup(restore_dist_asset)
+
+        bin_dir = self.root / "fake-bin"
+        bin_dir.mkdir()
+        uname = bin_dir / "uname"
+        uname.write_text(
+            "#!/usr/bin/env sh\n"
+            "case \"$1\" in\n"
+            "  -s) echo Linux ;;\n"
+            "  -m) echo aarch64 ;;\n"
+            "esac\n",
+            encoding="utf-8",
+        )
+        uname.chmod(0o755)
+        target = self.root / "runtime-openclaw-x" / "workspace"
+
+        result = self.run_install(
+            {
+                "OPENCLAW_WORKSPACE_DIR": str(target),
+                "CHIEF_INSTALL_BIN_DIR": None,
+                "CHIEF_INSTALL_BIN_BASE_URL": "http://127.0.0.1:9/not-used",
+                "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
+            }
+        )
+
+        chief = target / ".local" / "bin" / "chief"
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(chief.read_bytes(), CHIEF_ASSET.read_bytes())
 
     def test_retry_command_is_pasteable_when_workspace_path_contains_spaces(self):
         self.temp_dir.cleanup()
