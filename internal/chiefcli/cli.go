@@ -59,19 +59,19 @@ func Run(args []string, stdout io.Writer, stderr io.Writer, env EnvMap) int {
 			printClaimResponse(stdout, response)
 			return 0
 		}
-		fmt.Fprint(stdout, usageText)
+		fmt.Fprint(stderr, usageText)
 		return 2
 	}
 	if args[0] == "ledger" {
 		return runLedger(args[1:], stdout, stderr, ConfigFromEnv(env))
 	}
-	fmt.Fprint(stdout, usageText)
+	fmt.Fprint(stderr, usageText)
 	return 2
 }
 
 func runLedger(args []string, stdout io.Writer, stderr io.Writer, cfg Config) int {
 	if len(args) == 0 {
-		fmt.Fprint(stdout, usageText)
+		fmt.Fprint(stderr, usageText)
 		return 2
 	}
 	switch args[0] {
@@ -118,7 +118,7 @@ func runLedger(args []string, stdout io.Writer, stderr io.Writer, cfg Config) in
 	case "escrow":
 		return runLedgerEscrow(args[1:], stdout, stderr, cfg)
 	default:
-		fmt.Fprint(stdout, usageText)
+		fmt.Fprint(stderr, usageText)
 		return 2
 	}
 }
@@ -177,7 +177,7 @@ func runLedgerCredit(args []string, stdout io.Writer, stderr io.Writer, cfg Conf
 
 func runLedgerEscrow(args []string, stdout io.Writer, stderr io.Writer, cfg Config) int {
 	if len(args) == 0 {
-		fmt.Fprint(stdout, usageText)
+		fmt.Fprint(stderr, usageText)
 		return 2
 	}
 	switch args[0] {
@@ -223,7 +223,7 @@ func runLedgerEscrow(args []string, stdout io.Writer, stderr io.Writer, cfg Conf
 		printRawResponse(stdout, response)
 		return 0
 	default:
-		fmt.Fprint(stdout, usageText)
+		fmt.Fprint(stderr, usageText)
 		return 2
 	}
 }

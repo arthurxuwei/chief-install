@@ -5,10 +5,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"reflect"
 	"strings"
+	"time"
 )
+
+var httpClient = &http.Client{
+	Timeout: 30 * time.Second,
+	Transport: &http.Transport{
+		DialContext:           (&net.Dialer{Timeout: 5 * time.Second}).DialContext,
+		ResponseHeaderTimeout: 10 * time.Second,
+	},
+}
 
 func getJSON(cfg Config, path string, out any) error {
 	return doJSON(http.MethodGet, cfg.LedgerURL, cfg.LedgerFallback, path, nil, out)
@@ -74,7 +84,7 @@ func doJSONOnce(method string, base string, path string, body []byte) ([]byte, b
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, true, err
 	}

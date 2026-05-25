@@ -238,10 +238,10 @@ func TestPostJSONDoesNotMutateOutputWhenPrimaryReturnsSchemaInvalidJSON(t *testi
 }
 
 func TestGetJSONReturnsBodyReadErrors(t *testing.T) {
-	originalTransport := http.DefaultClient.Transport
-	http.DefaultClient.Transport = readErrorTransport{}
+	originalClient := httpClient
+	httpClient = &http.Client{Transport: readErrorTransport{}}
 	defer func() {
-		http.DefaultClient.Transport = originalTransport
+		httpClient = originalClient
 	}()
 
 	var response map[string]bool

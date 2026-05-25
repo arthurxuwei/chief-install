@@ -29,7 +29,35 @@ func TestUnknownCommandPrintsUsageAndReturnsTwo(t *testing.T) {
 	if exitCode != 2 {
 		t.Fatalf("exit code = %d", exitCode)
 	}
-	if !bytes.Contains(stdout.Bytes(), []byte("Chief CLI for ZeroClaw")) {
-		t.Fatalf("usage missing from stdout: %q", stdout.String())
+	if stdout.String() != "" {
+		t.Fatalf("stdout = %q", stdout.String())
+	}
+	if !bytes.Contains(stderr.Bytes(), []byte("Chief CLI for ZeroClaw")) {
+		t.Fatalf("usage missing from stderr: %q", stderr.String())
+	}
+}
+
+func TestBadArgsPrintUsageToStderr(t *testing.T) {
+	for _, args := range [][]string{
+		{"claim"},
+		{"ledger"},
+		{"ledger", "bogus"},
+		{"ledger", "escrow"},
+		{"ledger", "escrow", "bogus"},
+	} {
+		t.Run(args[0], func(t *testing.T) {
+			var stdout bytes.Buffer
+			var stderr bytes.Buffer
+			exitCode := Run(args, &stdout, &stderr, EnvMap{})
+			if exitCode != 2 {
+				t.Fatalf("exit code = %d", exitCode)
+			}
+			if stdout.String() != "" {
+				t.Fatalf("stdout = %q", stdout.String())
+			}
+			if !bytes.Contains(stderr.Bytes(), []byte("Chief CLI for ZeroClaw")) {
+				t.Fatalf("usage missing from stderr: %q", stderr.String())
+			}
+		})
 	}
 }
