@@ -2,12 +2,48 @@
 set -euo pipefail
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-mkdir -p "$ROOT_DIR/dist"
+DIST_DIR="$ROOT_DIR/dist"
+EXPECTED_ASSETS=(
+  chief_darwin_amd64
+  chief_darwin_arm64
+  chief_linux_amd64
+  chief_linux_arm64
+)
 
-for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64; do
-  os="${target%/*}"
-  arch="${target#*/}"
-  out="$ROOT_DIR/dist/chief_${os}_${arch}"
-  echo "building $out"
-  GOOS="$os" GOARCH="$arch" "$ROOT_DIR/scripts/build-chief.sh" "$out"
+mkdir -p "$DIST_DIR"
+
+for asset in "${EXPECTED_ASSETS[@]}"; do
+  rm -f "$DIST_DIR/$asset"
 done
+
+for asset in "${EXPECTED_ASSETS[@]}"; do
+  target="${asset#chief_}"
+  os="${target%_*}"
+  arch="${target#*_}"
+  out="$DIST_DIR/$asset"
+  echo "building $out"
+  CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" "$ROOT_DIR/scripts/build-chief.sh" "$out"
+done
+
+for asset in "${EXPECTED_ASSETS[@]}"; do
+  if [[ ! -x "$DIST_DIR/$asset" ]]; then
+    echo "missing release asset: $DIST_DIR/$asset" >&2
+    exit 1
+  fi
+done
+
+unexpected=()
+for path in "$DIST_DIR"/chief*; do
+  [[ -e "$path" ]] || continue
+  [[ -f "$path" ]] || continue
+  name="$(basename -- "$path")"
+  case " ${EXPECTED_ASSETS[*]} " in
+    *" $name "*) ;;
+    *) unexpected+=("$path") ;;
+  esac
+done
+
+if (( ${#unexpected[@]} > 0 )); then
+  printf 'unexpected chief release asset: %s\n' "${unexpected[@]}" >&2
+  exit 1
+fi
