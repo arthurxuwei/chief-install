@@ -10,7 +10,17 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CHIEF = ROOT / "bin" / "chief"
+BUILD_DIR = ROOT / "dist" / "test"
+CHIEF = BUILD_DIR / "chief"
+
+
+def setUpModule():
+    BUILD_DIR.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        [str(ROOT / "scripts" / "build-chief.sh"), str(CHIEF)],
+        cwd=ROOT,
+        check=True,
+    )
 
 
 class LedgerHandler(BaseHTTPRequestHandler):
@@ -169,6 +179,7 @@ class ChiefTransferTests(unittest.TestCase):
     def run_chief_from_workspace_without_env(self, payload):
         env = dict(self.env)
         env.pop("OPENCLAW_WORKSPACE_DIR", None)
+        env["PWD"] = str(self.workspace)
         return subprocess.run(
             [str(CHIEF), "ledger", "transfer", json.dumps(payload)],
             cwd=self.workspace,
@@ -571,15 +582,19 @@ class ChiefTransferTests(unittest.TestCase):
             },
         )
 
-    def test_claim_link_requires_python3_for_safe_profile_parsing(self):
+    def test_claim_link_does_not_require_python3(self):
         result = self.run_claim_link_without_python()
 
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn(
-            "python3 is required to read the OpenClaw profile safely",
-            result.stderr,
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            LedgerHandler.posted_claims[0],
+            {
+                "agentId": "agent_sender",
+                "agentName": "Sender",
+                "email": "sender@example.com",
+                "agentDescription": "",
+            },
         )
-        self.assertEqual(LedgerHandler.posted_claims, [])
 
     def test_wallet_get_or_create_requires_owner_email_before_posting(self):
         result = self.run_wallet_get_or_create(
