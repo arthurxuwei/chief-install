@@ -125,8 +125,11 @@ class OpenClawInstallTests(unittest.TestCase):
         if not dist_asset.exists():
             return
 
-        backup = self.root / f"{asset_name}.backup"
+        backup_dir = tempfile.TemporaryDirectory(prefix="chief-dist-backup-")
+        backup = Path(backup_dir.name) / asset_name
         dist_asset.replace(backup)
+
+        self.addCleanup(backup_dir.cleanup)
 
         def restore():
             dist_asset.parent.mkdir(exist_ok=True)
