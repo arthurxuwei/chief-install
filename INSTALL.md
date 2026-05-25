@@ -62,7 +62,6 @@ For developer verification, run:
 ```bash
 ./scripts/build-release.sh
 go test ./...
-python3 -m unittest discover -s tests
 ```
 
 Ensure the OpenClaw workspace config allows the `chief` command. Chief skills
