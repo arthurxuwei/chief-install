@@ -177,6 +177,7 @@ func TestLedgerTransferAmountParsing(t *testing.T) {
 		{input: `{"toEmail":"receiver@example.com","amount":"0.001U","paymentContext":{"source":"local_user_test","userApproved":true,"reason":"test"}}`, want: "1000"},
 		{input: `{"toEmail":"receiver@example.com","amount":"1.5 USDC","paymentContext":{"source":"local_user_test","userApproved":true,"reason":"test"}}`, want: "1500000"},
 		{input: `{"toEmail":"receiver@example.com","amount":"1.5USDC","paymentContext":{"source":"local_user_test","userApproved":true,"reason":"test"}}`, want: "1500000"},
+		{input: `{"toEmail":"receiver@example.com","amountAtomic":"2500","amount":"1.5USDC","paymentContext":{"source":"local_user_test","userApproved":true,"reason":"test"}}`, want: "2500"},
 	}
 
 	for _, tt := range tests {

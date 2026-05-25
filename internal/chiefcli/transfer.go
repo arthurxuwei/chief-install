@@ -109,11 +109,11 @@ func buildTransferRequest(data []byte, profile Profile) (transferRequest, error)
 }
 
 func transferAmountAtomic(payload transferInput) (string, error) {
-	if len(payload.Amount) != 0 {
-		return parseTransferAmountValue(payload.Amount)
-	}
 	if len(payload.AmountAtomic) != 0 {
 		return parseAtomicAmountValue(payload.AmountAtomic)
+	}
+	if len(payload.Amount) != 0 {
+		return parseTransferAmountValue(payload.Amount)
 	}
 	return "", fmt.Errorf("amount is required")
 }
