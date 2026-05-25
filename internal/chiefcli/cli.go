@@ -35,6 +35,30 @@ func Run(args []string, stdout io.Writer, stderr io.Writer, env EnvMap) int {
 		fmt.Fprintf(stdout, "chief %s\n", CLIVersion)
 		return 0
 	}
+	if args[0] == "claim" {
+		if len(args) == 2 && args[1] == "link" {
+			cfg := ConfigFromEnv(env)
+			profile, err := LoadProfile(ProfilePath(cfg))
+			if err != nil {
+				fmt.Fprintln(stderr, err.Error())
+				return 2
+			}
+			body, err := ClaimPayload(profile)
+			if err != nil {
+				fmt.Fprintln(stderr, err.Error())
+				return 2
+			}
+			var response ClaimResponse
+			if err := postJSON(cfg, "/ledger/claims/link", body, &response); err != nil {
+				fmt.Fprintln(stderr, err.Error())
+				return 1
+			}
+			printClaimResponse(stdout, response)
+			return 0
+		}
+		fmt.Fprint(stdout, usageText)
+		return 2
+	}
 	fmt.Fprint(stdout, usageText)
 	return 2
 }
