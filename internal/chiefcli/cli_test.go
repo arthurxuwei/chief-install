@@ -13,7 +13,7 @@ func TestVersionCommandsPrintVersion(t *testing.T) {
 		if exitCode != 0 {
 			t.Fatalf("Run(%v) exit code = %d stderr=%q", args, exitCode, stderr.String())
 		}
-		if stdout.String() != "chief 2026.05.25.2\n" {
+		if stdout.String() != "chief "+CLIVersion+"\n" {
 			t.Fatalf("stdout = %q", stdout.String())
 		}
 		if stderr.String() != "" {

@@ -2,7 +2,7 @@ package chiefcli
 
 import "os"
 
-const CLIVersion = "2026.05.25.2"
+const CLIVersion = "2026.05.26.1"
 
 type EnvMap map[string]string
 
