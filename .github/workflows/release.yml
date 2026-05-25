@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    paths:
+      - internal/chiefcli/config.go
   workflow_dispatch:
 
 permissions:
