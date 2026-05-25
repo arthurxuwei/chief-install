@@ -3,7 +3,9 @@ set -euo pipefail
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT="${1:-$ROOT_DIR/dist/chief}"
+TARGET_GOOS="${GOOS:-$(go env GOOS)}"
+TARGET_GOARCH="${GOARCH:-$(go env GOARCH)}"
 
 mkdir -p "$(dirname "$OUT")"
-GOOS="${GOOS:-$(go env GOOS)}" GOARCH="${GOARCH:-$(go env GOARCH)}" \
+CGO_ENABLED="${CGO_ENABLED:-0}" GOOS="$TARGET_GOOS" GOARCH="$TARGET_GOARCH" \
   go build -trimpath -ldflags="-s -w" -o "$OUT" "$ROOT_DIR/cmd/chief"

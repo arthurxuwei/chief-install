@@ -1,6 +1,6 @@
 # Install Chief CLI
 
-Install the `chief` CLI and only the Chief skills this deployment
+Install the Go-based `chief` CLI and only the Chief skills this deployment
 uses: `chief-ledger` and `chief-a2a-service-trade`.
 
 Chief installs into OpenClaw workspaces only.
@@ -18,6 +18,18 @@ To install one workspace explicitly:
 curl -fsSL https://raw.githubusercontent.com/arthurxuwei/chief-install/main/install.sh \
   | OPENCLAW_WORKSPACE_DIR='/path/to/runtime-openclaw-x/workspace' bash
 ```
+
+The installer is still the supported installation path. Normal users do not
+need Go; `install.sh` downloads the platform binary from GitHub releases by
+default using `CHIEF_INSTALL_BIN_BASE_URL`, which defaults to
+`https://github.com/arthurxuwei/chief-install/releases/latest/download`.
+
+Supported release platforms:
+
+- `darwin/amd64`
+- `darwin/arm64`
+- `linux/amd64`
+- `linux/arm64`
 
 After installation, the installer attempts to print `Claim Link` and
 `Agent Link`. If the ledger is unavailable, rerun:
@@ -43,6 +55,14 @@ The hosted Chief service defaults are built into the `chief` command. Override
 them only under operator guidance or when pointing this install kit at another
 deployment. The install docs intentionally avoid service path details; agents
 should use the `chief` commands instead of constructing backend calls.
+
+For developer verification, run:
+
+```bash
+./scripts/build-release.sh
+go test ./...
+python3 -m unittest discover -s tests
+```
 
 Ensure the OpenClaw workspace config allows the `chief` command. Chief skills
 are installed under `workspace/skills`; set `skills.open_skills_enabled = false`
