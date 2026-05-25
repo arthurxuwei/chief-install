@@ -1,0 +1,57 @@
+name: Release Chief CLI
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build release assets
+        run: ./scripts/build-release.sh
+
+      - name: Read CLI version
+        id: version
+        run: |
+          version="$(sed -n 's/^const CLIVersion = "\(.*\)"$/\1/p' internal/chiefcli/config.go)"
+          if [ -z "$version" ]; then
+            echo "CLIVersion not found" >&2
+            exit 1
+          fi
+          tag="chief-go-cli-$(printf '%s' "$version" | tr '.' '-')"
+          {
+            echo "version=$version"
+            echo "tag=$tag"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${{ steps.version.outputs.tag }}"
+          title="Chief Go CLI ${{ steps.version.outputs.version }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" dist/chief_* --clobber
+          else
+            gh release create "$tag" dist/chief_* \
+              --target "$GITHUB_SHA" \
+              --title "$title" \
+              --notes "Automated Chief CLI release for ${{ steps.version.outputs.version }}."
+          fi
