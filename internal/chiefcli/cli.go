@@ -113,6 +113,8 @@ func runLedger(args []string, stdout io.Writer, stderr io.Writer, cfg Config) in
 		return runLedgerWallet(args[1:], stdout, stderr, cfg)
 	case "credit":
 		return runLedgerCredit(args[1:], stdout, stderr, cfg)
+	case "transfer":
+		return runLedgerTransfer(args[1:], stdout, stderr, cfg)
 	case "escrow":
 		return runLedgerEscrow(args[1:], stdout, stderr, cfg)
 	default:
