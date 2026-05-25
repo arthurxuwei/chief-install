@@ -1,5 +1,6 @@
 import os
 import json
+import platform
 import shutil
 import subprocess
 import tempfile
@@ -11,17 +12,43 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = Path(__file__).resolve().parents[1]
 INSTALL = ROOT / "install.sh"
-CHIEF = ROOT / "bin" / "chief"
+TEST_ASSET_DIR = None
+CHIEF_ASSET = None
+
+
+def current_chief_asset_name():
+    system = platform.system().lower()
+    machine = platform.machine().lower()
+    arch_map = {
+        "x86_64": "amd64",
+        "amd64": "amd64",
+        "arm64": "arm64",
+        "aarch64": "arm64",
+    }
+    arch = arch_map.get(machine, machine)
+    if system not in {"darwin", "linux"} or arch not in {"amd64", "arm64"}:
+        raise RuntimeError(f"unsupported test platform: {system}/{machine}")
+    return f"chief_{system}_{arch}"
 
 
 def setUpModule():
+    global TEST_ASSET_DIR, CHIEF_ASSET
+    TEST_ASSET_DIR = tempfile.TemporaryDirectory()
+    CHIEF_ASSET = Path(TEST_ASSET_DIR.name) / current_chief_asset_name()
     subprocess.run(
-        [str(ROOT / "scripts" / "build-chief.sh"), str(CHIEF)],
+        [str(ROOT / "scripts" / "build-chief.sh"), str(CHIEF_ASSET)],
         cwd=ROOT,
         check=True,
     )
-    if not CHIEF.is_file() or not os.access(CHIEF, os.X_OK):
-        raise AssertionError(f"local chief test binary is not executable: {CHIEF}")
+    with CHIEF_ASSET.open("ab") as asset:
+        asset.write(b"\nchief-install-test-asset\n")
+    if not CHIEF_ASSET.is_file() or not os.access(CHIEF_ASSET, os.X_OK):
+        raise AssertionError(f"local chief test asset is not executable: {CHIEF_ASSET}")
+
+
+def tearDownModule():
+    if TEST_ASSET_DIR is not None:
+        TEST_ASSET_DIR.cleanup()
 
 
 class ClaimLedgerHandler(BaseHTTPRequestHandler):
@@ -73,7 +100,11 @@ class OpenClawInstallTests(unittest.TestCase):
         self.temp_dir.cleanup()
 
     def run_install(self, extra_env=None):
-        env = {**os.environ, "CHIEF_LEDGER_HTTP_URL": "http://127.0.0.1:9"}
+        env = {
+            **os.environ,
+            "CHIEF_INSTALL_BIN_DIR": str(CHIEF_ASSET.parent),
+            "CHIEF_LEDGER_HTTP_URL": "http://127.0.0.1:9",
+        }
         if extra_env:
             env.update(extra_env)
         return subprocess.run(
@@ -91,7 +122,18 @@ class OpenClawInstallTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         for name in ["runtime-openclaw-x", "runtime-openclaw-y"]:
             workspace = self.root / name / "workspace"
-            self.assertTrue((workspace / ".local" / "bin" / "chief").exists())
+            chief = workspace / ".local" / "bin" / "chief"
+            self.assertTrue(chief.exists())
+            self.assertTrue(os.access(chief, os.X_OK))
+            self.assertEqual(chief.read_bytes(), CHIEF_ASSET.read_bytes())
+            version = subprocess.run(
+                [str(chief), "version"],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(version.returncode, 0, version.stderr)
+            self.assertRegex(version.stdout, r"^chief \d{4}\.\d{2}\.\d{2}\.\d+\n$")
             self.assertTrue((workspace / "skills" / "chief-ledger" / "SKILL.md").exists())
             self.assertTrue((workspace / "skills" / "chief-a2a-service-trade" / "SKILL.md").exists())
             self.assertIn(f"OPENCLAW_WORKSPACE_DIR={workspace}", result.stdout)
@@ -150,6 +192,25 @@ class OpenClawInstallTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("No OpenClaw workspace found", result.stderr)
 
+    def test_install_fails_clearly_on_unsupported_platform(self):
+        bin_dir = self.root / "fake-bin"
+        bin_dir.mkdir()
+        uname = bin_dir / "uname"
+        uname.write_text(
+            "#!/usr/bin/env sh\n"
+            "case \"$1\" in\n"
+            "  -s) echo Plan9 ;;\n"
+            "  -m) echo riscv64 ;;\n"
+            "esac\n",
+            encoding="utf-8",
+        )
+        uname.chmod(0o755)
+
+        result = self.run_install({"PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}"})
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("Unsupported platform: Plan9/riscv64", result.stderr)
+
     def test_retry_command_is_pasteable_when_workspace_path_contains_spaces(self):
         self.temp_dir.cleanup()
         self.temp_dir = tempfile.TemporaryDirectory(prefix="chief install ")
@@ -173,7 +234,11 @@ class OpenClawInstallTests(unittest.TestCase):
         retry_result = subprocess.run(
             first_retry,
             cwd=self.root,
-            env={**os.environ, "CHIEF_LEDGER_HTTP_URL": "http://127.0.0.1:9"},
+            env={
+                **os.environ,
+                "CHIEF_INSTALL_BIN_DIR": str(CHIEF_ASSET.parent),
+                "CHIEF_LEDGER_HTTP_URL": "http://127.0.0.1:9",
+            },
             text=True,
             capture_output=True,
             shell=True,

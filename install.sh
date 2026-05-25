@@ -46,6 +46,55 @@ install_file() {
   fi
 }
 
+chief_asset_name() {
+  local os
+  local arch
+
+  case "$(uname -s)" in
+    Darwin)
+      os="darwin"
+      ;;
+    Linux)
+      os="linux"
+      ;;
+    *)
+      echo "Unsupported platform: $(uname -s)/$(uname -m)" >&2
+      return 2
+      ;;
+  esac
+
+  case "$(uname -m)" in
+    x86_64 | amd64)
+      arch="amd64"
+      ;;
+    arm64 | aarch64)
+      arch="arm64"
+      ;;
+    *)
+      echo "Unsupported platform: $(uname -s)/$(uname -m)" >&2
+      return 2
+      ;;
+  esac
+
+  printf 'chief_%s_%s\n' "$os" "$arch"
+}
+
+install_chief_binary() {
+  local dest="$1"
+  local asset
+
+  asset="$(chief_asset_name)" || return $?
+
+  if [[ -n "${CHIEF_INSTALL_BIN_DIR:-}" && -f "$CHIEF_INSTALL_BIN_DIR/$asset" ]]; then
+    cp "$CHIEF_INSTALL_BIN_DIR/$asset" "$dest"
+  elif [[ -f "$ROOT_DIR/dist/$asset" ]]; then
+    cp "$ROOT_DIR/dist/$asset" "$dest"
+  else
+    download_file "dist/$asset" "$dest"
+  fi
+  chmod +x "$dest"
+}
+
 install_skill_to() {
   local skills_dest="$1"
   local skill_name="$2"
@@ -81,8 +130,7 @@ install_workspace() {
   install_skill_to "$skills_dest" chief-ledger
   install_skill_to "$skills_dest" chief-a2a-service-trade
 
-  install_file "bin/chief" "$bin_dest/chief"
-  chmod +x "$bin_dest/chief"
+  install_chief_binary "$bin_dest/chief"
 
   cat <<EOF
 Chief installed successfully.
