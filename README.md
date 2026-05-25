@@ -15,21 +15,9 @@ needs:
 
 See [INSTALL.md](INSTALL.md) for installation.
 
-Release binaries are built for `darwin/amd64`, `darwin/arm64`,
-`linux/amd64`, and `linux/arm64`. Normal users install those prebuilt
-binaries through `install.sh` and do not need Go installed.
-
-By default, `install.sh` downloads `chief` from GitHub releases using
-`CHIEF_INSTALL_BIN_BASE_URL`. Override that variable only when testing local
-assets or installing from another release host.
+Normal users install prebuilt binaries through `install.sh` and do not need Go
+installed. Supported platforms, binary download settings, and developer
+verification commands are documented in [INSTALL.md](INSTALL.md).
 
 Hosted service defaults live in `chief`; override them with `CHIEF_*`
 environment variables only when using another deployment.
-
-Developer verification:
-
-```bash
-./scripts/build-release.sh
-go test ./...
-python3 -m unittest discover -s tests
-```

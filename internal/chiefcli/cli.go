@@ -74,6 +74,10 @@ func runLedger(args []string, stdout io.Writer, stderr io.Writer, cfg Config) in
 		fmt.Fprint(stderr, usageText)
 		return 2
 	}
+	if len(args) == 1 && isHelpArg(args[0]) {
+		fmt.Fprint(stdout, usageText)
+		return 0
+	}
 	switch args[0] {
 	case "health":
 		if len(args) != 1 {
@@ -230,4 +234,8 @@ func runLedgerEscrow(args []string, stdout io.Writer, stderr io.Writer, cfg Conf
 
 func printRawResponse(w io.Writer, body []byte) {
 	fmt.Fprint(w, string(body))
+}
+
+func isHelpArg(arg string) bool {
+	return arg == "help" || arg == "-h" || arg == "--help"
 }

@@ -37,6 +37,29 @@ func TestUnknownCommandPrintsUsageAndReturnsTwo(t *testing.T) {
 	}
 }
 
+func TestLedgerHelpPrintsUsageToStdout(t *testing.T) {
+	for _, args := range [][]string{
+		{"ledger", "help"},
+		{"ledger", "-h"},
+		{"ledger", "--help"},
+	} {
+		t.Run(args[1], func(t *testing.T) {
+			var stdout bytes.Buffer
+			var stderr bytes.Buffer
+			exitCode := Run(args, &stdout, &stderr, EnvMap{})
+			if exitCode != 0 {
+				t.Fatalf("exit code = %d", exitCode)
+			}
+			if !bytes.Contains(stdout.Bytes(), []byte("Chief CLI for ZeroClaw")) {
+				t.Fatalf("usage missing from stdout: %q", stdout.String())
+			}
+			if stderr.String() != "" {
+				t.Fatalf("stderr = %q", stderr.String())
+			}
+		})
+	}
+}
+
 func TestBadArgsPrintUsageToStderr(t *testing.T) {
 	for _, args := range [][]string{
 		{"claim"},
