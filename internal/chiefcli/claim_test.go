@@ -3,7 +3,9 @@ package chiefcli
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -152,6 +154,107 @@ func TestPostJSONRetriesFallbackWhenPrimaryRequestFails(t *testing.T) {
 	}
 }
 
+func TestPostJSONRetriesFallbackWhenPrimaryReturnsHTTPFailure(t *testing.T) {
+	primary := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "primary unavailable", http.StatusBadGateway)
+	}))
+	defer primary.Close()
+
+	fallbackCalls := 0
+	fallback := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fallbackCalls++
+		_ = json.NewEncoder(w).Encode(ClaimResponse{AgentID: "agent_fallback"})
+	}))
+	defer fallback.Close()
+
+	var response ClaimResponse
+	err := postJSON(Config{
+		LedgerURL:      primary.URL,
+		LedgerFallback: fallback.URL,
+	}, "/ledger/claims/link", ClaimRequest{AgentID: "agent_sender"}, &response)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fallbackCalls != 1 {
+		t.Fatalf("fallback calls = %d", fallbackCalls)
+	}
+	if response.AgentID != "agent_fallback" {
+		t.Fatalf("response = %#v", response)
+	}
+}
+
+func TestPostJSONDoesNotRetryFallbackOrMutateOutputWhenPrimaryReturnsInvalidJSON(t *testing.T) {
+	primary := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"agentId":"agent_primary",`)
+	}))
+	defer primary.Close()
+
+	fallbackCalls := 0
+	fallback := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fallbackCalls++
+		_ = json.NewEncoder(w).Encode(ClaimResponse{AgentID: "agent_fallback"})
+	}))
+	defer fallback.Close()
+
+	response := ClaimResponse{AgentID: "agent_existing"}
+	err := postJSON(Config{
+		LedgerURL:      primary.URL,
+		LedgerFallback: fallback.URL,
+	}, "/ledger/claims/link", ClaimRequest{AgentID: "agent_sender"}, &response)
+
+	if err == nil {
+		t.Fatal("postJSON returned nil error")
+	}
+	if !strings.Contains(err.Error(), "ledger response was not valid JSON") {
+		t.Fatalf("err = %v", err)
+	}
+	if fallbackCalls != 0 {
+		t.Fatalf("fallback calls = %d", fallbackCalls)
+	}
+	if response.AgentID != "agent_existing" {
+		t.Fatalf("response was mutated: %#v", response)
+	}
+}
+
+func TestPostJSONDoesNotMutateOutputWhenPrimaryReturnsSchemaInvalidJSON(t *testing.T) {
+	primary := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"agentId":123}`)
+	}))
+	defer primary.Close()
+
+	response := ClaimResponse{AgentID: "agent_existing"}
+	err := postJSON(Config{LedgerURL: primary.URL}, "/ledger/claims/link", ClaimRequest{AgentID: "agent_sender"}, &response)
+
+	if err == nil {
+		t.Fatal("postJSON returned nil error")
+	}
+	if !strings.Contains(err.Error(), "ledger response was not valid JSON") {
+		t.Fatalf("err = %v", err)
+	}
+	if response.AgentID != "agent_existing" {
+		t.Fatalf("response was mutated: %#v", response)
+	}
+}
+
+func TestGetJSONReturnsBodyReadErrors(t *testing.T) {
+	originalTransport := http.DefaultClient.Transport
+	http.DefaultClient.Transport = readErrorTransport{}
+	defer func() {
+		http.DefaultClient.Transport = originalTransport
+	}()
+
+	var response map[string]bool
+	err := getJSON(Config{LedgerURL: "http://ledger.example.test"}, "/health", &response)
+
+	if err == nil {
+		t.Fatal("getJSON returned nil error")
+	}
+	if !strings.Contains(err.Error(), "read failed") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
 func TestGetJSONSetsAcceptHeader(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if got := r.Header.Get("Accept"); got != "application/json, text/event-stream" {
@@ -169,3 +272,26 @@ func TestGetJSONSetsAcceptHeader(t *testing.T) {
 		t.Fatalf("response = %#v", response)
 	}
 }
+
+type readErrorTransport struct{}
+
+func (readErrorTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       errReader{},
+		Header:     make(http.Header),
+		Request:    req,
+	}, nil
+}
+
+type errReader struct{}
+
+func (errReader) Read(p []byte) (int, error) {
+	return 0, errors.New("read failed")
+}
+
+func (errReader) Close() error {
+	return nil
+}
+
+var _ io.ReadCloser = errReader{}
