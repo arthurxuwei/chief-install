@@ -1,13 +1,45 @@
 import os
+import json
 import shutil
 import subprocess
 import tempfile
+import threading
 import unittest
 from pathlib import Path
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 
 ROOT = Path(__file__).resolve().parents[1]
 INSTALL = ROOT / "install.sh"
+
+
+class ClaimLedgerHandler(BaseHTTPRequestHandler):
+    posted_claims = []
+
+    def log_message(self, format, *args):
+        return
+
+    def do_POST(self):
+        length = int(self.headers.get("Content-Length", "0"))
+        payload = json.loads(self.rfile.read(length).decode("utf-8"))
+        if self.path != "/ledger/claims/link":
+            self.send_response(404)
+            self.end_headers()
+            return
+        self.__class__.posted_claims.append(payload)
+        agent_id = payload["agentId"]
+        response = {
+            "agentId": agent_id,
+            "claimCode": f"clm_{agent_id}",
+            "claimUrl": f"https://ledger.example.test/dashboard?claimCode=clm_{agent_id}&agentId={agent_id}",
+            "agentUrl": f"https://ledger.example.test/dashboard?agentId={agent_id}",
+        }
+        body = json.dumps(response).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
 
 class OpenClawInstallTests(unittest.TestCase):
@@ -63,6 +95,41 @@ class OpenClawInstallTests(unittest.TestCase):
         other = self.root / "runtime-openclaw-y" / "workspace"
         self.assertFalse((other / ".local" / "bin" / "chief").exists())
 
+    def test_install_prints_claim_code_and_link_when_ledger_is_available(self):
+        ClaimLedgerHandler.posted_claims = []
+        server = ThreadingHTTPServer(("127.0.0.1", 0), ClaimLedgerHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(lambda: thread.join(timeout=5))
+        self.addCleanup(server.shutdown)
+        target = self.root / "runtime-openclaw-x" / "workspace"
+
+        result = self.run_install(
+            {
+                "OPENCLAW_WORKSPACE_DIR": str(target),
+                "CHIEF_LEDGER_HTTP_URL": f"http://127.0.0.1:{server.server_port}",
+            }
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            ClaimLedgerHandler.posted_claims,
+            [
+                {
+                    "agentId": "runtime-openclaw-x",
+                    "agentName": "runtime-openclaw-x",
+                    "email": "owner@example.com",
+                    "agentDescription": "",
+                }
+            ],
+        )
+        self.assertIn("Claim Code: clm_runtime-openclaw-x", result.stdout)
+        self.assertIn(
+            "Claim Link: https://ledger.example.test/dashboard?claimCode=clm_runtime-openclaw-x&agentId=runtime-openclaw-x",
+            result.stdout,
+        )
+
     def test_install_fails_when_no_openclaw_workspace_exists(self):
         shutil.rmtree(self.root / "runtime-openclaw-x")
         shutil.rmtree(self.root / "runtime-openclaw-y")
@@ -114,3 +181,11 @@ class OpenClawInstallTests(unittest.TestCase):
         self.assertIn("owner email", install)
         self.assertNotIn("chief ledger wallet get-or-create", skill)
         self.assertNotIn("chief ledger wallet get-or-create", install)
+
+    def test_chief_ledger_skill_runs_claim_link_after_install_or_claim_code_requests(self):
+        skill = (ROOT / "skills" / "chief-ledger" / "SKILL.md").read_text(encoding="utf-8")
+
+        self.assertIn("installation has just completed", skill)
+        self.assertIn("reinstall", skill)
+        self.assertIn("claimCode", skill)
+        self.assertIn("chief claim link", skill)

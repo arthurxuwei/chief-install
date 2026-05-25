@@ -2,7 +2,7 @@
 name: chief-ledger
 description: |
   Ledger and escrow capability for the local Chief stack. Use when the user asks about
-  Agent Wallet onboarding, Circle-sourced visible balances, escrow state, A2A settlement,
+  Agent Wallet onboarding, claimCode or claim link display, Circle-sourced visible balances, escrow state, A2A settlement,
   direct Agent-to-Agent transfer, funding/onramp ledger state, payment routing,
   creating escrow, releasing escrow, refunding escrow, or inspecting ledger health.
 metadata:
@@ -10,7 +10,7 @@ metadata:
   version: "0.1.0"
   requires:
     bins: ["chief"]
-  cliHelps: ["chief ledger --help", "chief ledger state", "chief ledger health"]
+  cliHelps: ["chief claim link", "chief ledger --help", "chief ledger state", "chief ledger health"]
 ---
 
 # Chief — Ledger & Escrow
@@ -24,6 +24,10 @@ Use the local `chief` CLI as the command entrypoint for ledger operations from Z
   the backend wallet binding, ensures the corresponding zero-balance ledger
   account exists, and prints the `Claim Link` the user needs. The owner email
   comes from the current OpenClaw profile and must never be omitted or guessed.
+- If installation has just completed, a reinstall has just completed, or the user
+  asks for `claimCode`, a claim code, a claim link, an agent link, or wallet
+  onboarding, run `chief claim link` immediately and show the resulting
+  `Claim Code`, `Claim Link`, and `Agent Link`. Do not answer from memory.
 - Any funding, payment, escrow lock, release, or refund must route payment intent first.
 - After routing, use only the returned `allowedTools` / command family.
 - If routing returns `needs_clarification`, ask the user before funding, paying, locking, releasing, or refunding.
@@ -85,6 +89,10 @@ This reads the current OpenClaw profile, creates or reuses the backend wallet
 binding through ledger, and prints `Agent ID`, `Claim Code`, `Claim Link`, and
 `Agent Link`. The profile must contain the owner email. Show the `Claim Link`
 to the user after onboarding succeeds.
+
+Also run this command after successful Chief installation or reinstall, and
+whenever the user asks for `claimCode`, a claim code, claim link, agent link, or
+how to claim the installed agent.
 
 ### Route Payment Intent
 

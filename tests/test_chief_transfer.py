@@ -301,6 +301,7 @@ class ChiefTransferTests(unittest.TestCase):
                 result = self.run_version(*args)
 
                 self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout.strip(), "chief 2026.05.25.2")
                 self.assertRegex(result.stdout.strip(), r"^chief [0-9]{4}\.[0-9]{2}\.[0-9]{2}\.[0-9]+$")
                 self.assertEqual(result.stderr, "")
 
