@@ -23,13 +23,13 @@ func TestLedgerStateAggregatesProfileScopedEndpoints(t *testing.T) {
 		requests = append(requests, r.URL.RequestURI())
 		switch r.URL.RequestURI() {
 		case "/ledger/accounts/agent%2Fone":
-			fmt.Fprint(w, `{"account":{"agentId":"agent/one","availableAtomic":"999","lockedAtomic":"100","circleUsdcBalance":"12.34"}}`)
+			fmt.Fprint(w, `{"account":{"agentId":"agent/one","availableAtomic":"999","lockedAtomic":"100","circleUsdcBalance":"12.34","nested":{"availableAtomic":"111"}}}`)
 		case "/ledger/accounts/agent%2Fone/entries?limit=500":
-			fmt.Fprint(w, `{"entries":[{"id":"entry_1","amountAtomic":"100"}]}`)
+			fmt.Fprint(w, `{"entries":[{"id":"entry_1","amountAtomic":"100","availableAtomic":"222","metadata":{"availableAtomic":"333"}}]}`)
 		case "/ledger/accounts/agent%2Fone/escrows":
-			fmt.Fprint(w, `{"escrows":[{"id":"escrow_1","lockedAtomic":"100"}]}`)
+			fmt.Fprint(w, `{"escrows":[{"id":"escrow_1","lockedAtomic":"100","availableAtomic":"444","events":[{"availableAtomic":"555"}]}]}`)
 		case "/ledger/onramp-sessions?agentId=agent%2Fone&limit=500":
-			fmt.Fprint(w, `{"onrampSessions":[{"id":"onramp_1","status":"pending"}]}`)
+			fmt.Fprint(w, `{"onrampSessions":[{"id":"onramp_1","status":"pending","availableAtomic":"666","provider":{"availableAtomic":"777"}}]}`)
 		default:
 			t.Fatalf("unexpected request %s", r.URL.RequestURI())
 		}
@@ -124,5 +124,37 @@ func TestLedgerHealthPrintsRawBody(t *testing.T) {
 	}
 	if stdout.String() != "ok" {
 		t.Fatalf("stdout = %q", stdout.String())
+	}
+}
+
+func TestGetRawRetriesFallbackWhenPrimaryFails(t *testing.T) {
+	primary := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "primary unavailable", http.StatusBadGateway)
+	}))
+	defer primary.Close()
+
+	fallbackCalls := 0
+	fallback := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fallbackCalls++
+		if r.URL.Path != "/health" {
+			t.Fatalf("path = %s", r.URL.Path)
+		}
+		fmt.Fprint(w, "fallback ok")
+	}))
+	defer fallback.Close()
+
+	body, err := getRaw(Config{
+		LedgerURL:      primary.URL,
+		LedgerFallback: fallback.URL,
+	}, "/health")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fallbackCalls != 1 {
+		t.Fatalf("fallback calls = %d", fallbackCalls)
+	}
+	if string(body) != "fallback ok" {
+		t.Fatalf("body = %q", string(body))
 	}
 }

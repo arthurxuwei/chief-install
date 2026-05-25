@@ -53,7 +53,6 @@ func LedgerState(cfg Config) ([]byte, error) {
 	if accountResponse.Account == nil {
 		return nil, fmt.Errorf("ledger state response is missing expected domain fields")
 	}
-	delete(accountResponse.Account, "availableAtomic")
 
 	var entriesResponse ledgerEntriesResponse
 	if err := getJSON(cfg, "/ledger/accounts/"+escapedPathAgentID+"/entries?limit=500", &entriesResponse); err != nil {
@@ -79,7 +78,7 @@ func LedgerState(cfg Config) ([]byte, error) {
 		return nil, fmt.Errorf("ledger state response is missing expected domain fields")
 	}
 
-	return json.Marshal(ledgerStatePayload{
+	state := ledgerStatePayload{
 		Accounts:            []map[string]any{accountResponse.Account},
 		Entries:             entriesResponse.Entries,
 		Escrows:             escrowsResponse.Escrows,
@@ -88,5 +87,28 @@ func LedgerState(cfg Config) ([]byte, error) {
 		CircleWebhookEvents: []map[string]any{},
 		ChainRecords:        []map[string]any{},
 		SettlementRecords:   []map[string]any{},
-	})
+	}
+	sanitizeAvailableAtomic(state.Accounts)
+	sanitizeAvailableAtomic(state.Entries)
+	sanitizeAvailableAtomic(state.Escrows)
+	sanitizeAvailableAtomic(state.OnrampSessions)
+	return json.Marshal(state)
+}
+
+func sanitizeAvailableAtomic(value any) {
+	switch typed := value.(type) {
+	case map[string]any:
+		delete(typed, "availableAtomic")
+		for _, child := range typed {
+			sanitizeAvailableAtomic(child)
+		}
+	case []map[string]any:
+		for _, child := range typed {
+			sanitizeAvailableAtomic(child)
+		}
+	case []any:
+		for _, child := range typed {
+			sanitizeAvailableAtomic(child)
+		}
+	}
 }
