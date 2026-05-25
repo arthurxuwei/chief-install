@@ -2,6 +2,7 @@
 set -euo pipefail
 
 CHIEF_INSTALL_BASE_URL="${CHIEF_INSTALL_BASE_URL:-https://raw.githubusercontent.com/arthurxuwei/chief-install/main}"
+CHIEF_INSTALL_BIN_BASE_URL="${CHIEF_INSTALL_BIN_BASE_URL:-https://github.com/arthurxuwei/chief-install/releases/latest/download}"
 ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 discover_workspaces() {
@@ -35,6 +36,12 @@ download_file() {
   curl -fsSL "$CHIEF_INSTALL_BASE_URL/$path" -o "$dest"
 }
 
+download_chief_binary() {
+  local asset="$1"
+  local dest="$2"
+  curl -fsSL "$CHIEF_INSTALL_BIN_BASE_URL/$asset" -o "$dest"
+}
+
 install_file() {
   local path="$1"
   local dest="$2"
@@ -44,6 +51,55 @@ install_file() {
   else
     download_file "$path" "$dest"
   fi
+}
+
+chief_asset_name() {
+  local os
+  local arch
+
+  case "$(uname -s)" in
+    Darwin)
+      os="darwin"
+      ;;
+    Linux)
+      os="linux"
+      ;;
+    *)
+      echo "Unsupported platform: $(uname -s)/$(uname -m)" >&2
+      return 2
+      ;;
+  esac
+
+  case "$(uname -m)" in
+    x86_64 | amd64)
+      arch="amd64"
+      ;;
+    arm64 | aarch64)
+      arch="arm64"
+      ;;
+    *)
+      echo "Unsupported platform: $(uname -s)/$(uname -m)" >&2
+      return 2
+      ;;
+  esac
+
+  printf 'chief_%s_%s\n' "$os" "$arch"
+}
+
+install_chief_binary() {
+  local dest="$1"
+  local asset
+
+  asset="$(chief_asset_name)" || return $?
+
+  if [[ -n "${CHIEF_INSTALL_BIN_DIR:-}" && -f "$CHIEF_INSTALL_BIN_DIR/$asset" ]]; then
+    cp "$CHIEF_INSTALL_BIN_DIR/$asset" "$dest"
+  elif [[ -f "$ROOT_DIR/dist/$asset" ]]; then
+    cp "$ROOT_DIR/dist/$asset" "$dest"
+  else
+    download_chief_binary "$asset" "$dest"
+  fi
+  chmod +x "$dest"
 }
 
 install_skill_to() {
@@ -81,8 +137,7 @@ install_workspace() {
   install_skill_to "$skills_dest" chief-ledger
   install_skill_to "$skills_dest" chief-a2a-service-trade
 
-  install_file "bin/chief" "$bin_dest/chief"
-  chmod +x "$bin_dest/chief"
+  install_chief_binary "$bin_dest/chief"
 
   cat <<EOF
 Chief installed successfully.

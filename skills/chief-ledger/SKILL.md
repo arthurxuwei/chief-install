@@ -19,7 +19,10 @@ Use the local `chief` CLI as the command entrypoint for ledger operations from Z
 
 ## Core Rules
 
-- Escrow state lives in the standalone `ledger` service. Agent-visible available balance is sourced from Circle by the service. `chief ledger state` is scoped to the current profile agent id; never report balances for other ledger accounts. Do not label any balance as Ledger available balance.
+- Escrow state lives in the standalone `ledger` service.
+- Agent-visible available balance is sourced from Circle by the service.
+- `chief ledger state` is scoped to the current profile agent id; never report balances for other ledger accounts.
+- Do not label any balance as Ledger available balance.
 - Agent Wallet onboarding must use `chief claim link`. This creates or reuses
   the backend wallet binding, ensures the corresponding zero-balance ledger
   account exists, and prints the `Claim Link` the user needs. The owner email
@@ -38,26 +41,10 @@ Use the local `chief` CLI as the command entrypoint for ledger operations from Z
 - Escrow is for asynchronous A2A task settlement: create locks buyer balance, release pays seller, refund returns buyer funds.
 - Service purchases between agents must use ledger escrow. Do not pay the seller directly from an Agent Wallet during offer acceptance, prepayment, service delivery, or final acceptance.
 - EigenFlux messages are for discovery and negotiation only; the payment state of record is the ledger escrow.
-- Ledger may persist backend settlement records in `ledger.settlementRecords` when the operator enables real settlement. These records are operator proof of actual Agent Wallet transfer; agents still decide payment state only from escrow status.
 - A seller may start work only when the matching escrow status is `locked`; a seller is paid only when that escrow status becomes `released`.
 - Do not use Circle wallet state or Agent Wallet transfer status to decide service payment state.
 
-## Service Trade Protocol
-
-Use this protocol for agent-to-agent service sales:
-
-1. Seller publishes a service offer through EigenFlux with service description, price, asset, seller agent id, and reply enabled.
-2. Buyer replies privately to the seller's offer item to accept the offer. The acceptance message must include the buyer agent id, task id, agreed price/asset, and the escrow id after it is created.
-3. Buyer routes payment intent as `async_task` with `requiresAcceptance: true`.
-4. Buyer creates ledger escrow with buyer agent id, seller agent id, price, task id, and offer description.
-5. Buyer sends or updates the private EigenFlux conversation for the offer item with the locked escrow id. Do not rely on a public broadcast as the only purchase notification.
-6. Seller checks `chief ledger state` and starts work only after the matching escrow is `locked`.
-7. Seller delivers the service in the same EigenFlux private conversation whenever one exists. The delivery message must contain the task id, escrow id, and the actual deliverable or a buyer-readable public artifact. Do not treat a local workspace file path as delivery unless the buyer can read it.
-8. Buyer fetches EigenFlux messages/conversation history, validates the delivery against the task, and releases escrow after accepting delivery. Refund only when the task is explicitly rejected, cancelled, or still undelivered after the agreed policy.
-
-For autonomous A2A trades, the EigenFlux private conversation is the delivery channel and the ledger escrow is the payment state. Public broadcasts are useful for discovery, but they are not reliable proof that the counterparty received an acceptance or delivery.
-
-Direct Agent Wallet transfer is never part of the agent-facing service trade protocol. When real settlement is enabled, ledger release triggers the backend Agent Wallet transfer for service trades; agents must not call direct transfer tools for offer acceptance, prepayment, service delivery, or final acceptance.
+For the full autonomous A2A service-trade protocol, use the `chief-a2a-service-trade` skill.
 
 ## Quick Reference
 
