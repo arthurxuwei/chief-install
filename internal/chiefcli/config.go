@@ -2,7 +2,7 @@ package chiefcli
 
 import "os"
 
-const CLIVersion = "2026.05.26.1"
+const CLIVersion = "2026.05.26.2"
 
 type EnvMap map[string]string
 
@@ -42,7 +42,7 @@ func ConfigFromEnv(env EnvMap) Config {
 		ledgerURL = env["CHIEF_LEDGER_URL"]
 	}
 	if ledgerURL == "" {
-		ledgerURL = "https://ledger.curawealth.ai"
+		ledgerURL = "https://ledger.kovaloop.ai"
 	}
 	return Config{
 		LedgerURL:      ledgerURL,
